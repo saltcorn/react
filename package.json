@@ -1,0 +1,29 @@
+{
+  "name": "@saltcorn/react",
+  "version": "0.0.1",
+  "description": "integrate React components in your Saltcorn application",
+  "main": "index.js",
+  "dependencies": {
+    "@saltcorn/markup": "^0.2.0",
+    "@saltcorn/data": "^0.2.0"
+  },
+  "author": "Christian Hugo",
+  "license": "MIT",
+  "repository": "github:saltcorn/react",
+  "eslintConfig": {
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 2020
+    },
+    "env": {
+      "node": true,
+      "es6": true
+    },
+    "rules": {
+      "no-unused-vars": "off",
+      "no-case-declarations": "off",
+      "no-empty": "warn",
+      "no-fallthrough": "warn"
+    }
+  }
+}
