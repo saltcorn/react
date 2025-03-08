@@ -1,8 +1,9 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Plugin = require("@saltcorn/data/models/plugin");
-
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
+const Table = require("@saltcorn/data/models/table");
+const { stateFieldsToWhere } = require("@saltcorn/data/plugin-helper");
 const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
@@ -139,6 +140,11 @@ const resourceWriter = (req, baseDirectory, mainCode) => {
             },
           },
         ],
+      },
+      resolve: {
+        alias: {
+          react: require.resolve("react")
+        }
       },
     };`,
         userId,
@@ -340,6 +346,7 @@ const configuration_workflow = (req) =>
   });
 const get_state_fields = () => [];
 
+// TODO default state, joinFields, aggregations, include_fml, exclusion_relation
 const run = async (
   table_id,
   viewname,
@@ -347,8 +354,26 @@ const run = async (
   state,
   extra
 ) => {
+  const req = extra.req;
+  const table = Table.findOne(table_id);
+  const fields = table.getFields();
+  const where = stateFieldsToWhere({
+    fields,
+    state,
+    table,
+    prefix: "a.",
+  });
+  const rows = await table.getRows(where, {
+    forUser: req.user,
+    forPublic: !req.user,
+  });
   return (
-    div({ id: root_element_id || "root" }) +
+    div({
+      id: root_element_id || "root",
+      "table-name": table.name,
+      "view-name": viewname,
+      rows: encodeURIComponent(JSON.stringify(rows)),
+    }) +
     script({
       src: `/files/serve/${base_directory}/dist/bundle.js`,
     })
