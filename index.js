@@ -3,7 +3,10 @@ const Plugin = require("@saltcorn/data/models/plugin");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
 const Table = require("@saltcorn/data/models/table");
-const { stateFieldsToWhere } = require("@saltcorn/data/plugin-helper");
+const {
+  stateFieldsToWhere,
+  readState,
+} = require("@saltcorn/data/plugin-helper");
 const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
@@ -80,10 +83,18 @@ import App from './App';
 const rootElement = document.getElementById('root');
 const tableName = rootElement.getAttribute('table-name');
 const viewName = rootElement.getAttribute('view-name');
+const state = JSON.parse(decodeURIComponent(rootElement.getAttribute('state')));
+const query = JSON.parse(decodeURIComponent(rootElement.getAttribute('query')));
 const rows = JSON.parse(decodeURIComponent(rootElement.getAttribute('initial-rows')));
 
 const root  = createRoot(document.getElementById('root'));
-root.render(<App initialRows={rows} tableName={tableName} viewName={viewName} />);          
+root.render(<App
+  tableName={tableName}
+  viewName={viewName}
+  state={state}
+  query={query}
+  initialRows={rows}
+/>);
 `,
         userId,
         minRole,
@@ -355,6 +366,7 @@ const run = async (
   extra
 ) => {
   const req = extra.req;
+  const query = req.query || {};
   const table = Table.findOne(table_id);
   const fields = table.getFields();
   const where = stateFieldsToWhere({
@@ -367,11 +379,14 @@ const run = async (
     forUser: req.user,
     forPublic: !req.user,
   });
+  readState(state, fields, req);
   return (
     div({
       id: build_base_directory ? "root" : root_element_id,
       "table-name": table.name,
       "view-name": viewname,
+      state: encodeURIComponent(JSON.stringify(state)),
+      query: encodeURIComponent(JSON.stringify(query)),
       "initial-rows": encodeURIComponent(JSON.stringify(rows)),
     }) +
     script({
@@ -387,7 +402,7 @@ const run_build = async (
   body,
   { req, res }
 ) => {
-  if (build_base_directory) {
+  if (build_base_directory || build_base_directory === undefined) {
     await prepareDirectory(req, base_directory, build_mode);
     res.json({ notify_success: "Build successful" });
   } else res.json({ error: "'Build base directory' is deactivated" });
