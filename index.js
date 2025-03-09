@@ -1,8 +1,9 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Plugin = require("@saltcorn/data/models/plugin");
-
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
+const Table = require("@saltcorn/data/models/table");
+const { stateFieldsToWhere } = require("@saltcorn/data/plugin-helper");
 const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
@@ -64,26 +65,30 @@ const processRunner = (req, baseDirectory, buildMode) => {
   };
 };
 
-const resourceWriter = (req, baseDirectory, mainCode) => {
+const resourceWriter = (req, baseDirectory) => {
   const userId = req?.user?.id;
   const minRole = req?.user?.role_id || 100;
   return {
     writeIndexJs: async () => {
-      const allFiles = await File.find({
-        folder: baseDirectory,
-      });
-      const oldFile = allFiles.find((f) => f.filename === "index.js");
-      if (oldFile) await oldFile.overwrite_contents(mainCode);
-      else {
-        await File.from_contents(
-          "index.js",
-          "application/javascript",
-          mainCode,
-          userId,
-          minRole,
-          baseDirectory
-        );
-      }
+      await File.from_contents(
+        "index.js",
+        "application/javascript",
+        `import React from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+
+const rootElement = document.getElementById('root');
+const tableName = rootElement.getAttribute('table-name');
+const viewName = rootElement.getAttribute('view-name');
+const rows = JSON.parse(decodeURIComponent(rootElement.getAttribute('initial-rows')));
+
+const root  = createRoot(document.getElementById('root'));
+root.render(<App initialRows={rows} tableName={tableName} viewName={viewName} />);          
+`,
+        userId,
+        minRole,
+        baseDirectory
+      );
     },
     writePackageJson: async () => {
       await File.from_contents(
@@ -139,6 +144,11 @@ const resourceWriter = (req, baseDirectory, mainCode) => {
             },
           },
         ],
+      },
+      resolve: {
+        alias: {
+          react: require.resolve("react")
+        }
       },
     };`,
         userId,
@@ -203,11 +213,13 @@ const getFiles = async (baseDirectory) => {
   );
   const babelRc = allFiles.find((f) => f.filename === ".babelrc");
   const indexJs = allFiles.find((f) => f.filename === "index.js");
+  const appJs = allFiles.find((f) => f.filename === "App.js");
   return {
     pckJson,
     webpackConfig,
     babelRc,
     indexJs,
+    appJs,
   };
 };
 
@@ -215,15 +227,23 @@ const getFiles = async (baseDirectory) => {
  *
  * @param {any} req
  * @param {string} baseDirectory
- * @param {string} mainCode
+ * @param {string} buildMode
  */
-const prepareDirectory = async (req, baseDirectory, mainCode, buildMode) => {
+const prepareDirectory = async (req, baseDirectory, buildMode) => {
   const baseDir = await File.findOne(baseDirectory);
   if (!baseDir) throw new Error("Base directory not found");
   // TODO check dir permissions
-  const writer = resourceWriter(req, baseDirectory, mainCode);
+  const writer = resourceWriter(req, baseDirectory);
   const runner = processRunner(req, baseDirectory, buildMode);
-  const { pckJson, webpackConfig, babelRc } = await getFiles(baseDirectory);
+  const { pckJson, webpackConfig, babelRc, indexJs, appJs } = await getFiles(
+    baseDirectory
+  );
+  if (!appJs) {
+    // perhaps another feedback when it's the finish button
+    throw new Error(
+      "Please create an App.js file and export default an App component. This is the entry point to your React code."
+    );
+  }
 
   // write package.json and run npm install if needed
   let installNeeded = false;
@@ -244,7 +264,7 @@ const prepareDirectory = async (req, baseDirectory, mainCode, buildMode) => {
 
   if (!webpackConfig) await writer.writeWebpackConfig();
   if (!babelRc) await writer.writeBabelRc();
-  await writer.writeIndexJs();
+  if (!indexJs) await writer.writeIndexJs();
   if ((await runner.runBuild()) !== 0)
     throw new Error("Webpack failed, please check your Server logs");
 };
@@ -253,12 +273,7 @@ const configuration_workflow = (req) =>
   new Workflow({
     onDone: async (context) => {
       if (context.build_base_directory)
-        await prepareDirectory(
-          req,
-          context.base_directory,
-          context.main_code,
-          context.build_mode
-        );
+        await prepareDirectory(req, context.base_directory, context.build_mode);
       return context;
     },
     onStepSave: async (step, ctx, formVals) => {
@@ -287,14 +302,13 @@ const configuration_workflow = (req) =>
                 },
               },
               {
-                name: "main_code",
-                label: "Main code",
-                input_type: "code",
-                required: true,
-                help: {
-                  topic: "React main code",
-                  plugin: "react",
-                },
+                name: "root_element_id",
+                label: "Root element id",
+                sublabel:
+                  "The root id for your React root element (default: root)",
+                type: "String",
+                default: "root",
+                showIf: { build_base_directory: false },
               },
               {
                 name: "base_directory",
@@ -317,14 +331,6 @@ const configuration_workflow = (req) =>
                   options: ["production", "development"],
                 },
               },
-              {
-                name: "root_element_id",
-                label: "Root element id",
-                sublabel:
-                  "The root id for your React root element (default: root)",
-                type: "String",
-                default: "root",
-              },
             ],
             additionalButtons: [
               {
@@ -340,15 +346,34 @@ const configuration_workflow = (req) =>
   });
 const get_state_fields = () => [];
 
+// TODO default state, joinFields, aggregations, include_fml, exclusion_relation
 const run = async (
   table_id,
   viewname,
-  { base_directory, root_element_id },
+  { base_directory, build_base_directory, root_element_id },
   state,
   extra
 ) => {
+  const req = extra.req;
+  const table = Table.findOne(table_id);
+  const fields = table.getFields();
+  const where = stateFieldsToWhere({
+    fields,
+    state,
+    table,
+    prefix: "a.",
+  });
+  const rows = await table.getRows(where, {
+    forUser: req.user,
+    forPublic: !req.user,
+  });
   return (
-    div({ id: root_element_id || "root" }) +
+    div({
+      id: build_base_directory ? "root" : root_element_id,
+      "table-name": table.name,
+      "view-name": viewname,
+      "initial-rows": encodeURIComponent(JSON.stringify(rows)),
+    }) +
     script({
       src: `/files/serve/${base_directory}/dist/bundle.js`,
     })
@@ -358,12 +383,12 @@ const run = async (
 const run_build = async (
   table_id,
   viewname,
-  { main_code, base_directory, build_base_directory, build_mode },
+  { base_directory, build_base_directory, build_mode },
   body,
   { req, res }
 ) => {
   if (build_base_directory) {
-    await prepareDirectory(req, base_directory, main_code, build_mode);
+    await prepareDirectory(req, base_directory, build_mode);
     res.json({ notify_success: "Build successful" });
   } else res.json({ error: "'Build base directory' is deactivated" });
 };
