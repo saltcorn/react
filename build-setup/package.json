@@ -1,0 +1,20 @@
+{
+  "name": "saltcorn-react-view",
+  "version": "0.0.1",
+  "description": "React view setup project",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --mode production",
+    "builddev": "webpack --mode development"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "webpack": "5.97.1",
+    "webpack-cli": "6.0.1",
+    "babel-loader": "^10.0.0",
+    "@babel/core": "^7.26.9",
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3"
+  }
+}
