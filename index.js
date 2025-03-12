@@ -1,7 +1,5 @@
 const Workflow = require("@saltcorn/data/models/workflow");
-const Plugin = require("@saltcorn/data/models/plugin");
 const Form = require("@saltcorn/data/models/form");
-const File = require("@saltcorn/data/models/file");
 const Table = require("@saltcorn/data/models/table");
 const {
   stateFieldsToWhere,
@@ -11,10 +9,14 @@ const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
+const { createWriteStream } = require("fs");
 const db = require("@saltcorn/data/db");
 const path = require("path");
+const { get } = require("https");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+const { extract } = require("tar");
 
-const processRunner = (buildMode) => {
+const processRunner = (buildMode, provideBundle) => {
   const location = path.join(__dirname, "build-setup");
   return {
     runBuild: async () => {
@@ -66,28 +68,143 @@ const processRunner = (buildMode) => {
   };
 };
 
-/**
- *
- * @param {any} req
- * @param {string} baseDirectory
- * @param {string} buildMode
- */
-const prepareDirectory = async (codeSource, codeLocation, buildMode) => {
-  await fs.cp(codeLocation, path.join(__dirname, "app-code"), {
-    recursive: true,
-    force: true,
+const loadFromGitHub = async (repoName, targetDir) => {
+  const tarballUrl = `https://api.github.com/repos/${repoName}/tarball`;
+  const fileName = repoName.split("/").pop();
+  const filePath = await loadTarball(tarballUrl, fileName);
+  await extractTarball(filePath, targetDir);
+};
+
+// taken from 'plugins-loader/download_utils.js'
+const getFetchProxyOptions = () => {
+  if (process.env["HTTPS_PROXY"]) {
+    const agent = new HttpsProxyAgent(process.env["HTTPS_PROXY"]);
+    return { agent };
+  } else return {};
+};
+
+// taken from 'plugins-loader/download_utils.js'
+const extractTarball = async (tarFile, destination) => {
+  await extract({
+    file: tarFile,
+    cwd: destination,
+    strip: 1,
   });
-  const runner = processRunner(buildMode);
-  if ((await runner.npmInstall()) !== 0)
-    throw new Error("NPM install failed, please check your Server logs");
-  if ((await runner.runBuild()) !== 0)
-    throw new Error("Webpack failed, please check your Server logs");
+};
+
+// mostly copied from 'plugins-loader/download_utils.js'
+// unify and move to data module ?
+const loadTarball = (url, name) => {
+  const options = {
+    headers: {
+      "User-Agent": "request",
+    },
+    ...getFetchProxyOptions(),
+  };
+  const writeTarball = async (res) => {
+    const filePath = path.join(__dirname, `${name}.tar.gz`);
+    const stream = createWriteStream(filePath);
+    res.pipe(stream);
+    return new Promise((resolve, reject) => {
+      stream.on("finish", () => {
+        stream.close();
+        resolve(filePath);
+      });
+      stream.on("error", (err) => {
+        stream.close();
+        reject(err);
+      });
+    });
+  };
+
+  return new Promise((resolve, reject) => {
+    get(url, options, (res) => {
+      if (res.statusCode === 302) {
+        get(res.headers.location, options, async (redirect) => {
+          if (redirect.statusCode === 200) {
+            const filePath = await writeTarball(redirect);
+            resolve(filePath);
+          } else
+            reject(
+              new Error(
+                `Error downloading tarball from ${url}: http code ${redirect.statusCode}`
+              )
+            );
+        });
+      }
+    });
+  });
+};
+
+async function emptyDirectory(directoryPath) {
+  try {
+    const files = await fs.readdir(directoryPath);
+    for (const file of files) {
+      const filePath = path.join(directoryPath, file);
+      await fs.rm(filePath, { recursive: true, force: true });
+    }
+  } catch (error) {
+    getState().log(5, `Error emptying directory: ${error.message}`);
+  }
+}
+
+const prepareDirectory = async (
+  codeSource,
+  codeLocation,
+  buildMode,
+  provideBundle
+) => {
+  const userCodeDir = path.join(__dirname, "app-code");
+  await emptyDirectory(userCodeDir);
+
+  // load the user code
+  switch (codeSource) {
+    case "GitHub":
+      await loadFromGitHub(codeLocation, userCodeDir);
+      break;
+    case "local":
+      await fs.cp(codeLocation, userCodeDir, {
+        recursive: true,
+        force: true,
+      });
+      break;
+    default:
+      throw new Error("Unknown code source");
+  }
+
+  // build or copy the bundle file
+  if (!provideBundle) {
+    const runner = processRunner(buildMode);
+    if ((await runner.npmInstall()) !== 0)
+      throw new Error("NPM install failed, please check your Server logs");
+    if ((await runner.runBuild()) !== 0)
+      throw new Error("Webpack failed, please check your Server logs");
+  } else
+    await fs.cp(
+      path.join(userCodeDir, "dist", "bundle.js"),
+      path.join(__dirname, "public", "bundle.js"),
+      {
+        force: true,
+      }
+    );
 };
 
 const configuration_workflow = () =>
   new Workflow({
     onDone: async (context) => {
-      await prepareDirectory(context.build_mode, context.app_code_location);
+      const {
+        app_code_source,
+        app_code_path,
+        app_code_repo,
+        build_mode,
+        provide_bundle,
+      } = context;
+      await prepareDirectory(
+        app_code_source,
+        app_code_source === "local" ? app_code_path : app_code_repo,
+        build_mode,
+        provide_bundle
+      );
       return context;
     },
     steps: [
@@ -95,6 +212,29 @@ const configuration_workflow = () =>
         name: "React plugin",
         form: async (context) =>
           new Form({
+            additionalHeaders: [
+              {
+                headerTag: `<script>
+  function runBuild() {
+    $.ajax({
+      type: "POST",
+      headers: {
+        "CSRF-Token": _sc_globalCsrf,
+      },
+      url: "/react/run_build",
+      success: function (data) {
+        if (data.notify_success)
+          notifyAlert({ type: "success", text: data.notify_success })
+      },
+      error: function (data) {
+        notifyAlert({ type: "danger", text: "Build failed, please check your Server logs" });
+        console.error(data);
+      },
+    });
+  }
+</script>`,
+              },
+            ],
             fields: [
               {
                 name: "app_code_source",
@@ -107,19 +247,20 @@ const configuration_workflow = () =>
                 },
               },
               {
-                name: "app_code_location",
-                label: "Code location",
+                name: "app_code_path",
+                label: "Path to code",
                 sublabel: "Please enter a local path to your React code",
                 type: "String",
-                required: true,
+                // required: true (but has problems with app_code_source showIf)
                 showIf: { app_code_source: "local" },
               },
               {
-                name: "app_code_location",
-                label: "Code location",
-                sublabel: "This is the GitHub location (not yet supported)",
+                name: "app_code_repo",
+                label: "GitHub repository name",
+                sublabel:
+                  "Please enter a GitHub repository name with your React code",
                 type: "String",
-                required: true,
+                // required: true (but has problems with app_code_source showIf)
                 showIf: { app_code_source: "GitHub" },
               },
               {
@@ -132,6 +273,21 @@ const configuration_workflow = () =>
                 attributes: {
                   options: ["production", "development"],
                 },
+              },
+              {
+                name: "provide_bundle",
+                label: "Provide your own bundle",
+                sublabel: "Do you want to provide your own bundle?",
+                type: "Bool",
+                required: true,
+                default: false,
+              },
+            ],
+            additionalButtons: [
+              {
+                label: "build",
+                onclick: "runBuild();",
+                class: "btn btn-primary",
               },
             ],
           }),
@@ -158,6 +314,7 @@ const run = async (table_id, viewname, {}, state, extra) => {
     forPublic: !req.user,
   });
   readState(state, fields, req);
+  const { build_mode, provide_bundle } = getState().plugin_cfgs?.react || {};
   return div(
     {
       "table-name": table.name,
@@ -168,28 +325,52 @@ const run = async (table_id, viewname, {}, state, extra) => {
     },
     script({
       src: "/plugins/public/react/bundle.js",
-    })
+    }),
+    provide_bundle
+      ? script({
+          src: `/plugins/public/react/setup_bundle${
+            build_mode === "development" ? "_dev" : ""
+          }.js`,
+        })
+      : ""
   );
 };
 
-const run_build = async (
-  table_id,
-  viewname,
-  { app_code_source, app_code_location, build_mode },
-  body,
-  { req, res }
-) => {
-  await prepareDirectory(app_code_source, app_code_location, build_mode);
-  res.json({ notify_success: "Build successful" });
+const routes = ({
+  app_code_source,
+  app_code_path,
+  app_code_repo,
+  build_mode,
+  provide_bundle,
+}) => {
+  return [
+    {
+      url: "/react/run_build",
+      method: "post",
+      callback: async (req, res) => {
+        getState().log(5, "Building your React code");
+        getState().log(
+          6,
+          `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
+            `app_code_repo: ${app_code_repo}, build_mode: ${build_mode} provide_bundle: ${provide_bundle}`
+        );
+        await prepareDirectory(
+          app_code_source,
+          app_code_source === "local" ? app_code_path : app_code_repo,
+          build_mode,
+          provide_bundle
+        );
+        res.json({ notify_success: "Build successful" });
+      },
+    },
+  ];
 };
 
 module.exports = {
   sc_plugin_api_version: 1,
   plugin_name: "react",
   configuration_workflow,
-  action: (config) => ({
-    run_build: run_build,
-  }),
+  routes,
   viewtemplates: (cfg) => [
     {
       name: "React",
