@@ -1,5 +1,6 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
+const File = require("@saltcorn/data/models/file");
 const Table = require("@saltcorn/data/models/table");
 const {
   stateFieldsToWhere,
@@ -16,7 +17,7 @@ const { get } = require("https");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { extract } = require("tar");
 
-const processRunner = (buildMode, provideBundle) => {
+const processRunner = (buildMode) => {
   const location = path.join(__dirname, "build-setup");
   return {
     runBuild: async () => {
@@ -73,6 +74,7 @@ const loadFromGitHub = async (repoName, targetDir) => {
   const fileName = repoName.split("/").pop();
   const filePath = await loadTarball(tarballUrl, fileName);
   await extractTarball(filePath, targetDir);
+  await fs.rm(filePath);
 };
 
 // taken from 'plugins-loader/download_utils.js'
@@ -136,7 +138,7 @@ const loadTarball = (url, name) => {
   });
 };
 
-async function emptyDirectory(directoryPath) {
+const emptyDirectory = async (directoryPath) => {
   try {
     const files = await fs.readdir(directoryPath);
     for (const file of files) {
@@ -146,7 +148,16 @@ async function emptyDirectory(directoryPath) {
   } catch (error) {
     getState().log(5, `Error emptying directory: ${error.message}`);
   }
-}
+};
+
+const exists = async (directoryPath) => {
+  try {
+    await fs.access(directoryPath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 const prepareDirectory = async (
   codeSource,
@@ -163,13 +174,33 @@ const prepareDirectory = async (
       await loadFromGitHub(codeLocation, userCodeDir);
       break;
     case "local":
+      if (!(await exists(codeLocation)))
+        throw new Error(`Local directory ${codeLocation} not found`);
       await fs.cp(codeLocation, userCodeDir, {
+        recursive: true,
+        force: true,
+      });
+      break;
+    case "sc_folder":
+      const folder = await File.findOne(codeLocation);
+      if (!folder)
+        throw new Error(`Folder ${codeLocation} not found in Saltcorn folders`);
+      await fs.cp(folder.location, userCodeDir, {
         recursive: true,
         force: true,
       });
       break;
     default:
       throw new Error("Unknown code source");
+  }
+
+  // validate userCodeDir
+  if (!provideBundle) {
+    if (!(await exists(path.join(userCodeDir, "App.js"))))
+      throw new Error("App.js not found in user code directory");
+  } else {
+    if (!(await exists(path.join(userCodeDir, "dist", "bundle.js"))))
+      throw new Error("Bundle.js not found in user code directory");
   }
 
   // build or copy the bundle file
@@ -196,12 +227,17 @@ const configuration_workflow = () =>
         app_code_source,
         app_code_path,
         app_code_repo,
+        sc_folder,
         build_mode,
         provide_bundle,
       } = context;
       await prepareDirectory(
         app_code_source,
-        app_code_source === "local" ? app_code_path : app_code_repo,
+        app_code_source === "local"
+          ? app_code_path
+          : app_code_source === "GitHub"
+          ? app_code_repo
+          : sc_folder,
         build_mode,
         provide_bundle
       );
@@ -210,8 +246,9 @@ const configuration_workflow = () =>
     steps: [
       {
         name: "React plugin",
-        form: async (context) =>
-          new Form({
+        form: async (context) => {
+          const directories = await File.find({ isDirectory: true });
+          return new Form({
             additionalHeaders: [
               {
                 headerTag: `<script>
@@ -224,14 +261,24 @@ const configuration_workflow = () =>
       },
       url: "/react/run_build",
       success: function (data) {
-        restore_old_button("build_button_id");
+        emptyAlerts();
         if (data.notify_success)
           notifyAlert({ type: "success", text: data.notify_success })
+        else
+          notifyAlert({ type: "success", text: "Build successful" });
+        setTimeout(() => {
+          restore_old_button("build_button_id");
+        }, 50);
       },
       error: function (data) {
-        restore_old_button("build_button_id");
-        notifyAlert({ type: "danger", text: "Build failed, please check your Server logs" });
+        if (data.responseText)
+          notifyAlert({ type: "danger", text: data.responseText });
+        else
+          notifyAlert({ type: "danger", text: "Build failed, please check your Server logs" });
         console.error(data);
+        setTimeout(() => {
+          restore_old_button("build_button_id");
+        }, 50);
       },
     });
   }
@@ -246,7 +293,7 @@ const configuration_workflow = () =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["GitHub", "local"],
+                  options: ["GitHub", "sc_folder", "local"],
                 },
               },
               {
@@ -265,6 +312,18 @@ const configuration_workflow = () =>
                 type: "String",
                 // required: true (but has problems with app_code_source showIf)
                 showIf: { app_code_source: "GitHub" },
+              },
+              {
+                name: "sc_folder",
+                label: "Saltcorn folder",
+                sublabel:
+                  "Please select a Saltcorn folder with your React code",
+                type: "String",
+                // required: true (but has problems with app_code_source showIf)
+                showIf: { app_code_source: "sc_folder" },
+                attributes: {
+                  options: directories.map((d) => d.path_to_serve),
+                },
               },
               {
                 name: "build_mode",
@@ -294,7 +353,8 @@ const configuration_workflow = () =>
                 class: "btn btn-primary",
               },
             ],
-          }),
+          });
+        },
       },
     ],
   });
@@ -344,6 +404,7 @@ const routes = ({
   app_code_source,
   app_code_path,
   app_code_repo,
+  sc_folder,
   build_mode,
   provide_bundle,
 }) => {
@@ -356,11 +417,15 @@ const routes = ({
         getState().log(
           6,
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
-            `app_code_repo: ${app_code_repo}, build_mode: ${build_mode} provide_bundle: ${provide_bundle}`
+            `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode} provide_bundle: ${provide_bundle}`
         );
         await prepareDirectory(
           app_code_source,
-          app_code_source === "local" ? app_code_path : app_code_repo,
+          app_code_source === "local"
+            ? app_code_path
+            : app_code_source === "GitHub"
+            ? app_code_repo
+            : sc_folder,
           build_mode,
           provide_bundle
         );
