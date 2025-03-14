@@ -18,7 +18,7 @@ const { HttpsProxyAgent } = require("https-proxy-agent");
 const { extract } = require("tar");
 
 const processRunner = (buildMode) => {
-  const location = path.join(__dirname, "build-setup");
+  const location = __dirname;
   return {
     runBuild: async () => {
       return new Promise((resolve, reject) => {
@@ -29,27 +29,6 @@ const processRunner = (buildMode) => {
             cwd: location,
           }
         );
-        child.stdout.on("data", (data) => {
-          getState().log(5, data.toString());
-        });
-        child.stderr?.on("data", (data) => {
-          getState().log(2, data.toString());
-        });
-        child.on("exit", function (code, signal) {
-          getState().log(5, `child process exited with code ${code}`);
-          resolve(code);
-        });
-        child.on("error", (msg) => {
-          getState().log(`child process failed: ${msg.code}`);
-          reject(msg.code);
-        });
-      });
-    },
-    npmInstall: async () => {
-      return new Promise((resolve, reject) => {
-        const child = spawn("npm", ["install"], {
-          cwd: location,
-        });
         child.stdout.on("data", (data) => {
           getState().log(5, data.toString());
         });
@@ -206,8 +185,6 @@ const prepareDirectory = async (
   // build or copy the bundle file
   if (!provideBundle) {
     const runner = processRunner(buildMode);
-    if ((await runner.npmInstall()) !== 0)
-      throw new Error("NPM install failed, please check your Server logs");
     if ((await runner.runBuild()) !== 0)
       throw new Error("Webpack failed, please check your Server logs");
   } else
