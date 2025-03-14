@@ -215,7 +215,8 @@ const configuration_workflow = () =>
             additionalHeaders: [
               {
                 headerTag: `<script>
-  function runBuild() {
+  function runBuild(btn) {
+    $(btn).data("old-text", "build");
     $.ajax({
       type: "POST",
       headers: {
@@ -223,10 +224,12 @@ const configuration_workflow = () =>
       },
       url: "/react/run_build",
       success: function (data) {
+        restore_old_button("build_button_id");
         if (data.notify_success)
           notifyAlert({ type: "success", text: data.notify_success })
       },
       error: function (data) {
+        restore_old_button("build_button_id");
         notifyAlert({ type: "danger", text: "Build failed, please check your Server logs" });
         console.error(data);
       },
@@ -285,8 +288,9 @@ const configuration_workflow = () =>
             ],
             additionalButtons: [
               {
+                id: "build_button_id",
                 label: "build",
-                onclick: "runBuild();",
+                onclick: "runBuild(this);press_store_button(this);",
                 class: "btn btn-primary",
               },
             ],
