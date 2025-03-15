@@ -17,35 +17,52 @@ const { get } = require("https");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { extract } = require("tar");
 
-const processRunner = (buildMode) => {
-  const location = __dirname;
-  return {
-    runBuild: async () => {
-      return new Promise((resolve, reject) => {
-        const child = spawn(
-          "npm",
-          ["run", buildMode === "development" ? "builddev" : "build"],
-          {
-            cwd: location,
-          }
-        );
-        child.stdout.on("data", (data) => {
-          getState().log(5, data.toString());
-        });
-        child.stderr?.on("data", (data) => {
-          getState().log(2, data.toString());
-        });
-        child.on("exit", function (code, signal) {
-          getState().log(5, `child process exited with code ${code}`);
-          resolve(code);
-        });
-        child.on("error", (msg) => {
-          getState().log(`child process failed: ${msg.code}`);
-          reject(msg.code);
-        });
-      });
-    },
-  };
+const runBuild = async (buildMode) => {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "npm",
+      ["run", buildMode === "development" ? "builddev" : "build"],
+      {
+        cwd: __dirname,
+      }
+    );
+    child.stdout.on("data", (data) => {
+      getState().log(5, data.toString());
+    });
+    child.stderr?.on("data", (data) => {
+      getState().log(2, data.toString());
+    });
+    child.on("exit", function (code, signal) {
+      getState().log(5, `child process exited with code ${code}`);
+      resolve(code);
+    });
+    child.on("error", (msg) => {
+      getState().log(`child process failed: ${msg.code}`);
+      reject(msg.code);
+    });
+  });
+};
+
+const runLint = async () => {
+  return new Promise((resolve, reject) => {
+    const child = spawn("npm", ["run", "eslint"], {
+      cwd: __dirname,
+    });
+    child.stdout.on("data", (data) => {
+      getState().log(5, data.toString());
+    });
+    child.stderr?.on("data", (data) => {
+      getState().log(2, data.toString());
+    });
+    child.on("exit", function (code, signal) {
+      getState().log(5, `child process exited with code ${code}`);
+      resolve(code);
+    });
+    child.on("error", (msg) => {
+      getState().log(`child process failed: ${msg.code}`);
+      reject(msg.code);
+    });
+  });
 };
 
 const loadFromGitHub = async (repoName, targetDir) => {
@@ -138,63 +155,72 @@ const exists = async (directoryPath) => {
   }
 };
 
-const prepareDirectory = async (
+const prepareDirectory = async ({
   codeSource,
   codeLocation,
   buildMode,
-  provideBundle
-) => {
+  provideBundle,
+  doLint,
+}) => {
   const userCodeDir = path.join(__dirname, "app-code");
   await emptyDirectory(userCodeDir);
 
-  // load the user code
-  switch (codeSource) {
-    case "GitHub":
-      await loadFromGitHub(codeLocation, userCodeDir);
-      break;
-    case "local":
-      if (!(await exists(codeLocation)))
-        throw new Error(`Local directory ${codeLocation} not found`);
-      await fs.cp(codeLocation, userCodeDir, {
-        recursive: true,
-        force: true,
-      });
-      break;
-    case "sc_folder":
-      const folder = await File.findOne(codeLocation);
-      if (!folder)
-        throw new Error(`Folder ${codeLocation} not found in Saltcorn folders`);
-      await fs.cp(folder.location, userCodeDir, {
-        recursive: true,
-        force: true,
-      });
-      break;
-    default:
-      throw new Error("Unknown code source");
-  }
+  // Load user code
+  const loadCode = async (source, location) => {
+    switch (source) {
+      case "GitHub":
+        return loadFromGitHub(location, userCodeDir);
+      case "local":
+        if (!(await exists(location))) {
+          throw new Error(`Local directory ${location} not found`);
+        }
+        await fs.cp(location, userCodeDir, { recursive: true, force: true });
+        break;
+      case "sc_folder":
+        const folder = await File.findOne(location);
+        if (!folder) {
+          throw new Error(`Folder ${location} not found in Saltcorn folders`);
+        }
+        await fs.cp(folder.location, userCodeDir, {
+          recursive: true,
+          force: true,
+        });
+        break;
+      default:
+        throw new Error("Unknown code source");
+    }
+  };
+  await loadCode(codeSource, codeLocation);
 
-  // validate userCodeDir
-  if (!provideBundle) {
-    if (!(await exists(path.join(userCodeDir, "App.js"))))
+  // Validate or build the code
+  const validateCode = async () => {
+    if (!(await exists(path.join(userCodeDir, "App.js")))) {
       throw new Error("App.js not found in user code directory");
-  } else {
-    if (!(await exists(path.join(userCodeDir, "dist", "bundle.js"))))
-      throw new Error("Bundle.js not found in user code directory");
-  }
+    }
+    if ((doLint || doLint === undefined) && (await runLint(buildMode)) !== 0) {
+      throw new Error("ESLint failed, please check your Server logs");
+    }
+  };
 
-  // build or copy the bundle file
-  if (!provideBundle) {
-    const runner = processRunner(buildMode);
-    if ((await runner.runBuild()) !== 0)
-      throw new Error("Webpack failed, please check your Server logs");
-  } else
+  const validateBundle = async () => {
+    if (!(await exists(path.join(userCodeDir, "dist", "bundle.js")))) {
+      throw new Error("Bundle.js not found in user code directory");
+    }
+  };
+
+  if (provideBundle) {
+    await validateBundle();
     await fs.cp(
       path.join(userCodeDir, "dist", "bundle.js"),
       path.join(__dirname, "public", "bundle.js"),
-      {
-        force: true,
-      }
+      { force: true }
     );
+  } else {
+    await validateCode();
+    if ((await runBuild(buildMode)) !== 0) {
+      throw new Error("Webpack failed, please check your Server logs");
+    }
+  }
 };
 
 const configuration_workflow = () =>
@@ -207,17 +233,20 @@ const configuration_workflow = () =>
         sc_folder,
         build_mode,
         provide_bundle,
+        run_eslint,
       } = context;
-      await prepareDirectory(
-        app_code_source,
-        app_code_source === "local"
-          ? app_code_path
-          : app_code_source === "GitHub"
-          ? app_code_repo
-          : sc_folder,
-        build_mode,
-        provide_bundle
-      );
+      await prepareDirectory({
+        codeSource: app_code_source,
+        codeLocation:
+          app_code_source === "local"
+            ? app_code_path
+            : app_code_source === "GitHub"
+            ? app_code_repo
+            : sc_folder,
+        buildMode: build_mode,
+        provideBundle: provide_bundle,
+        doLint: run_eslint,
+      });
       return context;
     },
     steps: [
@@ -321,6 +350,14 @@ const configuration_workflow = () =>
                 required: true,
                 default: false,
               },
+              {
+                name: "run_eslint",
+                label: "Run ESLint",
+                sublabel: "Do you want to run ESLint on your code?",
+                type: "Bool",
+                default: true,
+                showIf: { provide_bundle: false },
+              },
             ],
             additionalButtons: [
               {
@@ -384,6 +421,7 @@ const routes = ({
   sc_folder,
   build_mode,
   provide_bundle,
+  run_eslint,
 }) => {
   return [
     {
@@ -396,16 +434,18 @@ const routes = ({
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
             `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode} provide_bundle: ${provide_bundle}`
         );
-        await prepareDirectory(
-          app_code_source,
-          app_code_source === "local"
-            ? app_code_path
-            : app_code_source === "GitHub"
-            ? app_code_repo
-            : sc_folder,
-          build_mode,
-          provide_bundle
-        );
+        await prepareDirectory({
+          codeSource: app_code_source,
+          codeLocation:
+            app_code_source === "local"
+              ? app_code_path
+              : app_code_source === "GitHub"
+              ? app_code_repo
+              : sc_folder,
+          buildMode: build_mode,
+          provideBundle: provide_bundle,
+          doLint: run_eslint,
+        });
         res.json({ notify_success: "Build successful" });
       },
     },
