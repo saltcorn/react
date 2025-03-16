@@ -176,7 +176,7 @@ const prepareDirectory = async ({
         }
         await fs.cp(location, userCodeDir, { recursive: true, force: true });
         break;
-      case "sc_folder":
+      case "Saltcorn folder":
         const folder = await File.findOne(location);
         if (!folder) {
           throw new Error(`Folder ${location} not found in Saltcorn folders`);
@@ -299,7 +299,7 @@ const configuration_workflow = () =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["GitHub", "sc_folder", "local"],
+                  options: ["GitHub", "Saltcorn folder", "local"],
                 },
               },
               {
@@ -326,7 +326,7 @@ const configuration_workflow = () =>
                   "Please select a Saltcorn folder with your React code",
                 type: "String",
                 // required: true (but has problems with app_code_source showIf)
-                showIf: { app_code_source: "sc_folder" },
+                showIf: { app_code_source: "Saltcorn folder" },
                 attributes: {
                   options: directories.map((d) => d.path_to_serve),
                 },
@@ -432,7 +432,8 @@ const routes = ({
         getState().log(
           6,
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
-            `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode} provide_bundle: ${provide_bundle}`
+            `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode}, ` +
+            `provide_bundle: ${provide_bundle}, run_eslint: ${run_eslint}`
         );
         await prepareDirectory({
           codeSource: app_code_source,
