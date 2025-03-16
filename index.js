@@ -1,5 +1,4 @@
 const Workflow = require("@saltcorn/data/models/workflow");
-const Plugin = require("@saltcorn/data/models/plugin");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
 const Table = require("@saltcorn/data/models/table");
@@ -11,322 +10,335 @@ const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
+const { createWriteStream } = require("fs");
 const db = require("@saltcorn/data/db");
+const path = require("path");
+const { get } = require("https");
+const { HttpsProxyAgent } = require("https-proxy-agent");
+const { extract } = require("tar");
 
-const processRunner = (req, baseDirectory, buildMode) => {
-  return {
-    runBuild: async () => {
-      const dir = await File.findOne({ filename: baseDirectory });
-      const location = dir.location;
-      return new Promise((resolve, reject) => {
-        const child = spawn(
-          "npm",
-          ["run", buildMode === "development" ? "builddev" : "build"],
-          {
-            cwd: location,
-          }
-        );
-        child.stdout.on("data", (data) => {
-          getState().log(5, data.toString());
-        });
-        child.stderr?.on("data", (data) => {
-          getState().log(2, data.toString());
-        });
-        child.on("exit", function (code, signal) {
-          getState().log(5, `child process exited with code ${code}`);
-          resolve(code);
-        });
-        child.on("error", (msg) => {
-          getState().log(`child process failed: ${msg.code}`);
-          reject(msg.code);
-        });
-      });
-    },
-    npmInstall: async () => {
-      const dir = await File.findOne({ filename: baseDirectory });
-      const location = dir.location;
-      return new Promise((resolve, reject) => {
-        const child = spawn("npm", ["install"], {
-          cwd: location,
-        });
-        child.stdout.on("data", (data) => {
-          getState().log(5, data.toString());
-        });
-        child.stderr?.on("data", (data) => {
-          getState().log(2, data.toString());
-        });
-        child.on("exit", function (code, signal) {
-          getState().log(5, `child process exited with code ${code}`);
-          resolve(code);
-        });
-        child.on("error", (msg) => {
-          getState().log(`child process failed: ${msg.code}`);
-          reject(msg.code);
-        });
-      });
-    },
-  };
-};
-
-const resourceWriter = (req, baseDirectory) => {
-  const userId = req?.user?.id;
-  const minRole = req?.user?.role_id || 100;
-  return {
-    writeIndexJs: async () => {
-      await File.from_contents(
-        "index.js",
-        "application/javascript",
-        `import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-
-const rootElement = document.getElementById('root');
-const tableName = rootElement.getAttribute('table-name');
-const viewName = rootElement.getAttribute('view-name');
-const state = JSON.parse(decodeURIComponent(rootElement.getAttribute('state')));
-const query = JSON.parse(decodeURIComponent(rootElement.getAttribute('query')));
-const rows = JSON.parse(decodeURIComponent(rootElement.getAttribute('initial-rows')));
-
-const root  = createRoot(document.getElementById('root'));
-root.render(<App
-  tableName={tableName}
-  viewName={viewName}
-  state={state}
-  query={query}
-  initialRows={rows}
-/>);
-`,
-        userId,
-        minRole,
-        baseDirectory
-      );
-    },
-    writePackageJson: async () => {
-      await File.from_contents(
-        "package.json",
-        "application/json",
-        JSON.stringify(
-          {
-            name: "saltcorn-react-view",
-            version: "1.0.0",
-            description: "React view",
-            main: "index.js",
-            scripts: {
-              build: "webpack --mode production",
-              builddev: "webpack --mode development",
-            },
-            dependencies: {
-              react: "^19.0.0",
-              "react-dom": "^19.0.0",
-              webpack: "5.97.1",
-              "webpack-cli": "6.0.1",
-              "babel-loader": "^10.0.0",
-              "@babel/core": "^7.26.9",
-              "@babel/preset-env": "^7.26.9",
-              "@babel/preset-react": "^7.26.3",
-            },
-          },
-          null,
-          2
-        ),
-        userId,
-        minRole,
-        baseDirectory
-      );
-    },
-    writeWebpackConfig: async () => {
-      await File.from_contents(
-        "webpack.config.js",
-        "application/javascript",
-        `const path = require('path');
-    module.exports = {
-      entry: './index.js',
-      output: {
-        path: path.resolve(__dirname, 'dist'),
-        filename: 'bundle.js',
-      },
-      module: {
-        rules: [
-          {
-            test: /.js$/,
-            exclude: /node_modules/,
-            use: {
-              loader: 'babel-loader',
-            },
-          },
-        ],
-      },
-      resolve: {
-        alias: {
-          react: require.resolve("react")
-        }
-      },
-    };`,
-        userId,
-        minRole,
-        baseDirectory
-      );
-    },
-    writeBabelRc: async () => {
-      await File.from_contents(
-        ".babelrc",
-        "application/json",
-        `{
-      "presets": ["@babel/preset-env", "@babel/preset-react"]
-    }`,
-        userId,
-        minRole,
-        baseDirectory
-      );
-    },
-  };
-};
-
-const setLastInstallDate = async (date) => {
-  let plugin = await Plugin.findOne({ name: "react" });
-  if (!plugin) {
-    plugin = await Plugin.findOne({
-      name: "@saltcorn/react",
-    });
-  }
-  const newConfig = {
-    ...(plugin.configuration || {}),
-    last_install_date: date,
-  };
-  plugin.configuration = newConfig;
-  await plugin.upsert();
-  getState().processSend({
-    refresh_plugin_cfg: plugin.name,
-    tenant: db.getTenantSchema(),
-  });
-};
-
-const getLastInstallDate = async () => {
-  let plugin = await Plugin.findOne({ name: "react" });
-  if (!plugin) {
-    plugin = await Plugin.findOne({
-      name: "@saltcorn/react",
-    });
-  }
-  if (plugin.configuration?.last_install_date)
-    return new Date(plugin.configuration.last_install_date);
-  else return null;
-};
-
-const getFiles = async (baseDirectory) => {
-  const allFiles = await File.find({
-    folder: baseDirectory,
-    hiddenFiles: true,
-  });
-  const pckJson = allFiles.find((f) => f.filename === "package.json");
-  const webpackConfig = allFiles.find(
-    (f) => f.filename === "webpack.config.js"
-  );
-  const babelRc = allFiles.find((f) => f.filename === ".babelrc");
-  const indexJs = allFiles.find((f) => f.filename === "index.js");
-  const appJs = allFiles.find((f) => f.filename === "App.js");
-  return {
-    pckJson,
-    webpackConfig,
-    babelRc,
-    indexJs,
-    appJs,
-  };
-};
-
-/**
- *
- * @param {any} req
- * @param {string} baseDirectory
- * @param {string} buildMode
- */
-const prepareDirectory = async (req, baseDirectory, buildMode) => {
-  const baseDir = await File.findOne(baseDirectory);
-  if (!baseDir) throw new Error("Base directory not found");
-  // TODO check dir permissions
-  const writer = resourceWriter(req, baseDirectory);
-  const runner = processRunner(req, baseDirectory, buildMode);
-  const { pckJson, webpackConfig, babelRc, indexJs, appJs } = await getFiles(
-    baseDirectory
-  );
-  if (!appJs) {
-    // perhaps another feedback when it's the finish button
-    throw new Error(
-      "Please create an App.js file and export default an App component. This is the entry point to your React code."
+const runBuild = async (buildMode) => {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "npm",
+      ["run", buildMode === "development" ? "builddev" : "build"],
+      {
+        cwd: __dirname,
+      }
     );
-  }
-
-  // write package.json and run npm install if needed
-  let installNeeded = false;
-  if (!pckJson) {
-    await writer.writePackageJson();
-    installNeeded = true;
-  } else {
-    const stats = await fs.stat(pckJson.location);
-    const lastModified = stats.mtime;
-    const lastInstall = await getLastInstallDate();
-    if (!lastInstall || lastModified > lastInstall) installNeeded = true;
-  }
-  if (installNeeded) {
-    if ((await runner.npmInstall()) !== 0)
-      throw new Error("NPM install failed, please check your Server logs");
-    else await setLastInstallDate(new Date());
-  }
-
-  if (!webpackConfig) await writer.writeWebpackConfig();
-  if (!babelRc) await writer.writeBabelRc();
-  if (!indexJs) await writer.writeIndexJs();
-  if ((await runner.runBuild()) !== 0)
-    throw new Error("Webpack failed, please check your Server logs");
+    child.stdout.on("data", (data) => {
+      getState().log(5, data.toString());
+    });
+    child.stderr?.on("data", (data) => {
+      getState().log(2, data.toString());
+    });
+    child.on("exit", function (code, signal) {
+      getState().log(5, `child process exited with code ${code}`);
+      resolve(code);
+    });
+    child.on("error", (msg) => {
+      getState().log(`child process failed: ${msg.code}`);
+      reject(msg.code);
+    });
+  });
 };
 
-const configuration_workflow = (req) =>
+const runLint = async () => {
+  return new Promise((resolve, reject) => {
+    const child = spawn("npm", ["run", "eslint"], {
+      cwd: __dirname,
+    });
+    child.stdout.on("data", (data) => {
+      getState().log(5, data.toString());
+    });
+    child.stderr?.on("data", (data) => {
+      getState().log(2, data.toString());
+    });
+    child.on("exit", function (code, signal) {
+      getState().log(5, `child process exited with code ${code}`);
+      resolve(code);
+    });
+    child.on("error", (msg) => {
+      getState().log(`child process failed: ${msg.code}`);
+      reject(msg.code);
+    });
+  });
+};
+
+const loadFromGitHub = async (repoName, targetDir) => {
+  const tarballUrl = `https://api.github.com/repos/${repoName}/tarball`;
+  const fileName = repoName.split("/").pop();
+  const filePath = await loadTarball(tarballUrl, fileName);
+  await extractTarball(filePath, targetDir);
+  await fs.rm(filePath);
+};
+
+// taken from 'plugins-loader/download_utils.js'
+const getFetchProxyOptions = () => {
+  if (process.env["HTTPS_PROXY"]) {
+    const agent = new HttpsProxyAgent(process.env["HTTPS_PROXY"]);
+    return { agent };
+  } else return {};
+};
+
+// taken from 'plugins-loader/download_utils.js'
+const extractTarball = async (tarFile, destination) => {
+  await extract({
+    file: tarFile,
+    cwd: destination,
+    strip: 1,
+  });
+};
+
+// mostly copied from 'plugins-loader/download_utils.js'
+// unify and move to data module ?
+const loadTarball = (url, name) => {
+  const options = {
+    headers: {
+      "User-Agent": "request",
+    },
+    ...getFetchProxyOptions(),
+  };
+  const writeTarball = async (res) => {
+    const filePath = path.join(__dirname, `${name}.tar.gz`);
+    const stream = createWriteStream(filePath);
+    res.pipe(stream);
+    return new Promise((resolve, reject) => {
+      stream.on("finish", () => {
+        stream.close();
+        resolve(filePath);
+      });
+      stream.on("error", (err) => {
+        stream.close();
+        reject(err);
+      });
+    });
+  };
+
+  return new Promise((resolve, reject) => {
+    get(url, options, (res) => {
+      if (res.statusCode === 302) {
+        get(res.headers.location, options, async (redirect) => {
+          if (redirect.statusCode === 200) {
+            const filePath = await writeTarball(redirect);
+            resolve(filePath);
+          } else
+            reject(
+              new Error(
+                `Error downloading tarball from ${url}: http code ${redirect.statusCode}`
+              )
+            );
+        });
+      }
+    });
+  });
+};
+
+const emptyDirectory = async (directoryPath) => {
+  try {
+    const files = await fs.readdir(directoryPath);
+    for (const file of files) {
+      const filePath = path.join(directoryPath, file);
+      await fs.rm(filePath, { recursive: true, force: true });
+    }
+  } catch (error) {
+    getState().log(5, `Error emptying directory: ${error.message}`);
+  }
+};
+
+const exists = async (directoryPath) => {
+  try {
+    await fs.access(directoryPath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+const prepareDirectory = async ({
+  codeSource,
+  codeLocation,
+  buildMode,
+  provideBundle,
+  doLint,
+}) => {
+  const userCodeDir = path.join(__dirname, "app-code");
+  await emptyDirectory(userCodeDir);
+
+  // Load user code
+  const loadCode = async (source, location) => {
+    switch (source) {
+      case "GitHub":
+        return loadFromGitHub(location, userCodeDir);
+      case "local":
+        if (!(await exists(location))) {
+          throw new Error(`Local directory ${location} not found`);
+        }
+        await fs.cp(location, userCodeDir, { recursive: true, force: true });
+        break;
+      case "Saltcorn folder":
+        const folder = await File.findOne(location);
+        if (!folder) {
+          throw new Error(`Folder ${location} not found in Saltcorn folders`);
+        }
+        await fs.cp(folder.location, userCodeDir, {
+          recursive: true,
+          force: true,
+        });
+        break;
+      default:
+        throw new Error("Unknown code source");
+    }
+  };
+  await loadCode(codeSource, codeLocation);
+
+  // Validate or build the code
+  const validateCode = async () => {
+    if (!(await exists(path.join(userCodeDir, "App.js")))) {
+      throw new Error("App.js not found in user code directory");
+    }
+    if ((doLint || doLint === undefined) && (await runLint(buildMode)) !== 0) {
+      throw new Error("ESLint failed, please check your Server logs");
+    }
+  };
+
+  const validateBundle = async () => {
+    if (!(await exists(path.join(userCodeDir, "dist", "bundle.js")))) {
+      throw new Error("Bundle.js not found in user code directory");
+    }
+  };
+
+  if (provideBundle) {
+    await validateBundle();
+    await fs.cp(
+      path.join(userCodeDir, "dist", "bundle.js"),
+      path.join(__dirname, "public", "bundle.js"),
+      { force: true }
+    );
+  } else {
+    await validateCode();
+    if ((await runBuild(buildMode)) !== 0) {
+      throw new Error("Webpack failed, please check your Server logs");
+    }
+  }
+};
+
+const configuration_workflow = () =>
   new Workflow({
     onDone: async (context) => {
-      if (context.build_base_directory)
-        await prepareDirectory(req, context.base_directory, context.build_mode);
+      const {
+        app_code_source,
+        app_code_path,
+        app_code_repo,
+        sc_folder,
+        build_mode,
+        provide_bundle,
+        run_eslint,
+      } = context;
+      await prepareDirectory({
+        codeSource: app_code_source,
+        codeLocation:
+          app_code_source === "local"
+            ? app_code_path
+            : app_code_source === "GitHub"
+            ? app_code_repo
+            : sc_folder,
+        buildMode: build_mode,
+        provideBundle: provide_bundle,
+        doLint: run_eslint,
+      });
       return context;
-    },
-    onStepSave: async (step, ctx, formVals) => {
-      // when the base_directory changes, remove the last npm install date
-      if (formVals?.base_directory !== ctx.base_directory)
-        await setLastInstallDate(null);
     },
     steps: [
       {
-        name: "Build settings",
+        name: "React plugin",
         form: async (context) => {
           const directories = await File.find({ isDirectory: true });
           return new Form({
+            blurb:
+              "This plugin allows you to use React code in Saltcorn views. " +
+              "The following configurations control where the React code comes from " +
+              "and how the bundle.js file is generated. " +
+              "Only one bundle can exist, and you decide at runtime what to display." +
+              "You can use the 'Build' button to generate the bundle.js file and stay on the page, " +
+              "or click 'Finish' to build and complete the process. For an example, " +
+              "take a look at the <a href='https://github.com/saltcorn/react' target='_blank'>README</a>",
+            additionalHeaders: [
+              {
+                headerTag: `<script>
+  function runBuild(btn) {
+    $(btn).data("old-text", "build");
+    $.ajax({
+      type: "POST",
+      headers: {
+        "CSRF-Token": _sc_globalCsrf,
+      },
+      url: "/react/run_build",
+      success: function (data) {
+        emptyAlerts();
+        if (data.notify_success)
+          notifyAlert({ type: "success", text: data.notify_success })
+        else
+          notifyAlert({ type: "success", text: "Build successful" });
+        setTimeout(() => {
+          restore_old_button("build_button_id");
+        }, 50);
+      },
+      error: function (data) {
+        if (data.responseText)
+          notifyAlert({ type: "danger", text: data.responseText });
+        else
+          notifyAlert({ type: "danger", text: "Build failed, please check your Server logs" });
+        console.error(data);
+        setTimeout(() => {
+          restore_old_button("build_button_id");
+        }, 50);
+      },
+    });
+  }
+</script>`,
+              },
+            ],
             fields: [
               {
-                name: "build_base_directory",
-                label: "Build base directory",
-                sublabel:
-                  "Prepare and build your base directory (see help). " +
-                  "Deselect, if you want to do this on your own.",
-                type: "Bool",
-                default: true,
+                name: "app_code_source",
+                label: "Code source",
+                sublabel: "Where do you want to get your React code from?",
+                type: "String",
+                required: true,
+                attributes: {
+                  options: ["GitHub", "Saltcorn folder", "local"],
+                },
                 help: {
-                  topic: "Build base directory",
+                  topic: "Code source",
                   plugin: "react",
                 },
               },
               {
-                name: "root_element_id",
-                label: "Root element id",
-                sublabel:
-                  "The root id for your React root element (default: root)",
+                name: "app_code_path",
+                label: "Path to code",
+                sublabel: "Please enter a local path to your React code",
                 type: "String",
-                default: "root",
-                showIf: { build_base_directory: false },
+                // required: true (but has problems with app_code_source showIf)
+                showIf: { app_code_source: "local" },
               },
               {
-                name: "base_directory",
-                label: "Base directory",
-                sublabel: "Please select a directory for your Rect code",
+                name: "app_code_repo",
+                label: "GitHub repository name",
+                sublabel:
+                  "Please enter a GitHub repository name with your React code",
                 type: "String",
-                required: true,
+                // required: true (but has problems with app_code_source showIf)
+                showIf: { app_code_source: "GitHub" },
+              },
+              {
+                name: "sc_folder",
+                label: "Saltcorn folder",
+                sublabel:
+                  "Please select a Saltcorn folder with your React code",
+                type: "String",
+                // required: true (but has problems with app_code_source showIf)
+                showIf: { app_code_source: "Saltcorn folder" },
                 attributes: {
                   options: directories.map((d) => d.path_to_serve),
                 },
@@ -342,11 +354,32 @@ const configuration_workflow = (req) =>
                   options: ["production", "development"],
                 },
               },
+              {
+                name: "provide_bundle",
+                label: "Provide your own bundle",
+                sublabel: "Do you want to provide your own bundle?",
+                type: "Bool",
+                required: true,
+                default: false,
+                help: {
+                  topic: "Provide bundle",
+                  plugin: "react",
+                },
+              },
+              {
+                name: "run_eslint",
+                label: "Run ESLint",
+                sublabel: "Do you want to run ESLint on your code?",
+                type: "Bool",
+                default: true,
+                showIf: { provide_bundle: false },
+              },
             ],
             additionalButtons: [
               {
+                id: "build_button_id",
                 label: "build",
-                onclick: `view_post('${context.viewname}', 'run_build', {});`,
+                onclick: "runBuild(this);press_store_button(this);",
                 class: "btn btn-primary",
               },
             ],
@@ -355,16 +388,11 @@ const configuration_workflow = (req) =>
       },
     ],
   });
+
 const get_state_fields = () => [];
 
 // TODO default state, joinFields, aggregations, include_fml, exclusion_relation
-const run = async (
-  table_id,
-  viewname,
-  { base_directory, build_base_directory, root_element_id },
-  state,
-  extra
-) => {
+const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
   const table = Table.findOne(table_id);
@@ -380,45 +408,79 @@ const run = async (
     forPublic: !req.user,
   });
   readState(state, fields, req);
-  return (
-    div({
-      id: build_base_directory ? "root" : root_element_id,
+  const { build_mode, provide_bundle } = getState().plugin_cfgs?.react || {};
+  return div(
+    {
       "table-name": table.name,
       "view-name": viewname,
       state: encodeURIComponent(JSON.stringify(state)),
       query: encodeURIComponent(JSON.stringify(query)),
       "initial-rows": encodeURIComponent(JSON.stringify(rows)),
-    }) +
+    },
     script({
-      src: `/files/serve/${base_directory}/dist/bundle.js`,
-    })
+      src: "/plugins/public/react/bundle.js",
+    }),
+    provide_bundle
+      ? script({
+          src: `/plugins/public/react/setup_bundle${
+            build_mode === "development" ? "_dev" : ""
+          }.js`,
+        })
+      : ""
   );
 };
 
-const run_build = async (
-  table_id,
-  viewname,
-  { base_directory, build_base_directory, build_mode },
-  body,
-  { req, res }
-) => {
-  if (build_base_directory || build_base_directory === undefined) {
-    await prepareDirectory(req, base_directory, build_mode);
-    res.json({ notify_success: "Build successful" });
-  } else res.json({ error: "'Build base directory' is deactivated" });
+const routes = ({
+  app_code_source,
+  app_code_path,
+  app_code_repo,
+  sc_folder,
+  build_mode,
+  provide_bundle,
+  run_eslint,
+}) => {
+  return [
+    {
+      url: "/react/run_build",
+      method: "post",
+      callback: async (req, res) => {
+        getState().log(5, "Building your React code");
+        getState().log(
+          6,
+          `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
+            `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode}, ` +
+            `provide_bundle: ${provide_bundle}, run_eslint: ${run_eslint}`
+        );
+        await prepareDirectory({
+          codeSource: app_code_source,
+          codeLocation:
+            app_code_source === "local"
+              ? app_code_path
+              : app_code_source === "GitHub"
+              ? app_code_repo
+              : sc_folder,
+          buildMode: build_mode,
+          provideBundle: provide_bundle,
+          doLint: run_eslint,
+        });
+        res.json({ notify_success: "Build successful" });
+      },
+    },
+  ];
 };
 
 module.exports = {
   sc_plugin_api_version: 1,
   plugin_name: "react",
-  viewtemplates: [
+  configuration_workflow,
+  routes,
+  viewtemplates: (cfg) => [
     {
       name: "React",
       description: "React view",
       get_state_fields,
-      configuration_workflow,
+      configuration_workflow: () => new Workflow({}),
       run,
-      routes: { run_build },
     },
   ],
 };
