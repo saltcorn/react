@@ -13,9 +13,9 @@ const fs = require("fs").promises;
 const { createWriteStream } = require("fs");
 const db = require("@saltcorn/data/db");
 const path = require("path");
-const { get } = require("https");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { extract } = require("tar");
+const fetch = require("node-fetch");
 
 const runBuild = async (buildMode) => {
   return new Promise((resolve, reject) => {
@@ -92,7 +92,7 @@ const extractTarball = async (tarFile, destination) => {
 
 // mostly copied from 'plugins-loader/download_utils.js'
 // unify and move to data module ?
-const loadTarball = (url, name) => {
+const loadTarball = async (url, name) => {
   const options = {
     headers: {
       "User-Agent": "request",
@@ -102,7 +102,7 @@ const loadTarball = (url, name) => {
   const writeTarball = async (res) => {
     const filePath = path.join(__dirname, `${name}.tar.gz`);
     const stream = createWriteStream(filePath);
-    res.pipe(stream);
+    res.body.pipe(stream);
     return new Promise((resolve, reject) => {
       stream.on("finish", () => {
         stream.close();
@@ -115,23 +115,13 @@ const loadTarball = (url, name) => {
     });
   };
 
-  return new Promise((resolve, reject) => {
-    get(url, options, (res) => {
-      if (res.statusCode === 302) {
-        get(res.headers.location, options, async (redirect) => {
-          if (redirect.statusCode === 200) {
-            const filePath = await writeTarball(redirect);
-            resolve(filePath);
-          } else
-            reject(
-              new Error(
-                `Error downloading tarball from ${url}: http code ${redirect.statusCode}`
-              )
-            );
-        });
-      }
-    });
-  });
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch tarball: ${response.status} ${response.statusText}`
+    );
+  }
+  return await writeTarball(response);
 };
 
 const emptyDirectory = async (directoryPath) => {
@@ -169,7 +159,8 @@ const prepareDirectory = async ({
   const loadCode = async (source, location) => {
     switch (source) {
       case "GitHub":
-        return loadFromGitHub(location, userCodeDir);
+        await loadFromGitHub(location, userCodeDir);
+        break;
       case "local":
         if (!(await exists(location))) {
           throw new Error(`Local directory ${location} not found`);
