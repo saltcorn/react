@@ -255,6 +255,14 @@ const configuration_workflow = () =>
         form: async (context) => {
           const directories = await File.find({ isDirectory: true });
           return new Form({
+            blurb:
+              "This plugin allows you to use React code in Saltcorn views. " +
+              "The following configurations control where the React code comes from " +
+              "and how the bundle.js file is generated. " +
+              "Only one bundle can exist, and you decide at runtime what to display." +
+              "You can use the 'Build' button to generate the bundle.js file and stay on the page, " +
+              "or click 'Finish' to build and complete the process. For an example, " +
+              "take a look at the <a href='https://github.com/saltcorn/react' target='_blank'>README</a>",
             additionalHeaders: [
               {
                 headerTag: `<script>
@@ -300,6 +308,10 @@ const configuration_workflow = () =>
                 required: true,
                 attributes: {
                   options: ["GitHub", "Saltcorn folder", "local"],
+                },
+                help: {
+                  topic: "Code source",
+                  plugin: "react",
                 },
               },
               {
@@ -349,6 +361,10 @@ const configuration_workflow = () =>
                 type: "Bool",
                 required: true,
                 default: false,
+                help: {
+                  topic: "Provide bundle",
+                  plugin: "react",
+                },
               },
               {
                 name: "run_eslint",
