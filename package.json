@@ -20,7 +20,9 @@
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-react": "^7.26.3",
     "eslint": "9.22.0",
-    "eslint-plugin-react": "^7.37.4"
+    "eslint-plugin-react": "^7.37.4",
+    "globals": "^16.0.0",
+    "@saltcorn/react-lib": "0.0.1-beta.0"
   },
   "author": "Christian Hugo",
   "license": "MIT",

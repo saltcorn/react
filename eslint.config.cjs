@@ -1,5 +1,6 @@
 const eslint = require("@eslint/js");
 const reactPlugin = require("eslint-plugin-react");
+const globals = require("globals");
 
 module.exports = [
   eslint.configs.recommended,
@@ -14,7 +15,7 @@ module.exports = [
         },
       },
       globals: {
-        window: "readonly",
+        ...globals.browser,
       },
     },
     settings: {
