@@ -56,7 +56,7 @@ window.App = App;
 # react-lib
 
 The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks and functions to interact with the Saltcorn system. <br>
-The following examples are basic, more complete examples can be found [here](https://github.com/saltcorn/react-lib).
+The following examples are basic, more complete code can be found [here](https://github.com/saltcorn/react/tree/main/examples).
 
 Note: If you provide your own bundle, you need to integrate **react-lib** yourself.
 
