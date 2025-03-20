@@ -399,7 +399,6 @@ const run = async (table_id, viewname, {}, state, extra) => {
     forPublic: !req.user,
   });
   readState(state, fields, req);
-  const { build_mode, provide_bundle } = getState().plugin_cfgs?.react || {};
   return div(
     {
       "table-name": table.name,
@@ -411,13 +410,6 @@ const run = async (table_id, viewname, {}, state, extra) => {
     script({
       src: "/plugins/public/react/bundle.js",
     }),
-    provide_bundle
-      ? script({
-          src: `/plugins/public/react/setup_bundle${
-            build_mode === "development" ? "_dev" : ""
-          }.js`,
-        })
-      : ""
   );
 };
 
