@@ -4,7 +4,7 @@ You can either provide your React code and let the system bundle it, or supply y
 import React from "react";
 
 function App({ tableName, viewName, 
-  state, query, initialRows }) { 
+  state, query, rows }) { 
     ... 
 }
 

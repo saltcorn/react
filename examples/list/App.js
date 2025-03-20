@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function App({ initialRows }) {
+export default function App({ rows }) {
   return (
     <div className="container mt-4">
       <h2 className="mb-4">Persons List</h2>
@@ -16,8 +16,8 @@ export default function App({ initialRows }) {
             </tr>
           </thead>
           <tbody>
-            {initialRows.length > 0 ? (
-              initialRows.map((person, index) => (
+            {rows.length > 0 ? (
+              rows.map((person, index) => (
                 <tr key={person.id}>
                   <td>{index + 1}</td>
                   <td>{person.first_name}</td>

@@ -9,7 +9,7 @@ const viewName = rootElement.getAttribute("view-name");
 const state = JSON.parse(decodeURIComponent(rootElement.getAttribute("state")));
 const query = JSON.parse(decodeURIComponent(rootElement.getAttribute("query")));
 const rows = JSON.parse(
-  decodeURIComponent(rootElement.getAttribute("initial-rows"))
+  decodeURIComponent(rootElement.getAttribute("rows"))
 );
 const root = createRoot(rootElement);
 root.render(
@@ -18,6 +18,6 @@ root.render(
     viewName={viewName}
     state={state}
     query={query}
-    initialRows={rows}
+    rows={rows}
   />
 );

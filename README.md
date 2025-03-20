@@ -26,10 +26,10 @@ export default function App({ tableName, viewName }) {
 
 When everything went well, you now have a bundle.js of your React code in the public folder of **@saltcorn/react**. Only one bundle can exist, and you decide at runtime what to display for `{tablename, viewname}`.
 
-The component also has access to **state**, **query** and **initialRows**:
+The component also has access to **state**, **query** and **rows**:
 
 ```javascript
-export default function App({ tableName, viewName, state, query, initialRows })
+export default function App({ tableName, viewName, state, query, rows })
 ```
 
 # Plugin configuration
@@ -46,7 +46,7 @@ The plugin configuration has the following options:
 ```javascript
 import React from "react";
 
-function App({ tableName, viewName, state, query, initialRows }) { ... }
+function App({ tableName, viewName, state, query, rows }) { ... }
 
 window.App = App;
 ```

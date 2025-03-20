@@ -406,7 +406,7 @@ const run = async (table_id, viewname, {}, state, extra) => {
       "view-name": viewname,
       state: encodeURIComponent(JSON.stringify(state)),
       query: encodeURIComponent(JSON.stringify(query)),
-      "initial-rows": encodeURIComponent(JSON.stringify(rows)),
+      "rows": encodeURIComponent(JSON.stringify(rows)),
     },
     script({
       src: "/plugins/public/react/bundle.js",
