@@ -1,0 +1,23 @@
+{
+  "name": "own-bundle-example",
+  "author": "Christian Hugo",
+  "license": "MIT",
+  "version": "0.0.1",
+  "description": "Example to build your own React view bundle",
+  "main": "App.js",
+  "scripts": {
+    "build": "webpack --mode production",
+    "builddev": "webpack --mode development"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "webpack": "5.97.1",
+    "webpack-cli": "6.0.1",
+    "babel-loader": "^10.0.0",
+    "@babel/core": "^7.26.9",
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3",
+    "@saltcorn/react-lib": "0.0.1-beta.1"
+  }
+}

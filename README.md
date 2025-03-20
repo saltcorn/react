@@ -26,10 +26,10 @@ export default function App({ tableName, viewName }) {
 
 When everything went well, you now have a bundle.js of your React code in the public folder of **@saltcorn/react**. Only one bundle can exist, and you decide at runtime what to display for `{tablename, viewname}`.
 
-The component also has access to **state**, **query** and **initialRows**:
+The component also has access to **state**, **query** and **rows**:
 
 ```javascript
-export default function App({ tableName, viewName, state, query, initialRows })
+export default function App({ tableName, viewName, state, query, rows })
 ```
 
 # Plugin configuration
@@ -41,12 +41,12 @@ The plugin configuration has the following options:
   - **GitHub**: To get the code from a GitHub repository. To use https://github.com/christianhugoch/react-view-example, enter **christianhugoch/react-view-example** in the **GitHub repository name** input.
   - **Local**: To get the code from a folder on your local server filesystem (**Path to code** input).
 - **Build mode**: Build your bundle.js for development or production. Use development for debugging and production for minified deployment code.
-- **Provide your own bundle**: You can either provide your React code as shown in the example above and let the system bundle it, or supply your own bundle.js file. The file must be located in a **dist** folder within your **Code source** location. Additionally, please use React version 19 and expose an `App` component in the global scope. Example:
+- **Provide your own bundle**: You can either provide your React code as shown in the example above and let the system bundle it, or supply your own bundle.js file. The file must be located in a **dist** folder within your **Code source** location (see examples/provide-own-bundle).
 
 ```javascript
 import React from "react";
 
-function App({ tableName, viewName, state, query, initialRows }) { ... }
+function App({ tableName, viewName, state, query, rows }) { ... }
 
 window.App = App;
 ```

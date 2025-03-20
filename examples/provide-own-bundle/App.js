@@ -1,6 +1,10 @@
 import React from "react";
+import { createRoot } from "react-dom/client";
 
-export default function App({ rows }) {
+import { useFetchRows } from "@saltcorn/react-lib/hooks";
+import { insertRow } from "@saltcorn/react-lib/api";
+
+function App({ rows }) {
   return (
     <div className="container mt-4">
       <h2 className="mb-4">Persons List</h2>
@@ -39,3 +43,23 @@ export default function App({ rows }) {
     </div>
   );
 }
+
+const scriptTag = document.currentScript;
+const rootElement = scriptTag.parentElement;
+const tableName = rootElement.getAttribute("table-name");
+const viewName = rootElement.getAttribute("view-name");
+const state = JSON.parse(decodeURIComponent(rootElement.getAttribute("state")));
+const query = JSON.parse(decodeURIComponent(rootElement.getAttribute("query")));
+const rows = JSON.parse(
+  decodeURIComponent(rootElement.getAttribute("rows"))
+);
+const root = createRoot(rootElement);
+root.render(
+  <App
+    tableName={tableName}
+    viewName={viewName}
+    state={state}
+    query={query}
+    rows={rows}
+  />
+);

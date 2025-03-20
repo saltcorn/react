@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { updateRow } from "@saltcorn/react-lib/api";
 
-export default function App({ initialRows, tableName }) {
+export default function App({ rows: initialRows, tableName }) {
   const [rows, setRows] = useState(initialRows);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [showModal, setShowModal] = useState(false);
