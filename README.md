@@ -1,4 +1,4 @@
-# react
+# React
 
 Plugin to integrate React components in your Saltcorn application.
 
@@ -55,4 +55,87 @@ window.App = App;
 
 # react-lib
 
-wip
+The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks and functions to interact with the Saltcorn system. <br>
+The following examples are basic, more complete code can be found [here](https://github.com/saltcorn/react/tree/main/examples).
+
+Note: If you provide your own bundle, you need to integrate **react-lib** yourself.
+
+## Read rows
+
+To fetch multiple rows, you can use this structure:
+
+```javascript
+import { useFetchRows } from "@saltcorn/react-lib/hooks";
+
+export default function App({ tableName, viewName, state, query }) {
+  const { rows, error } = useFetchRows(tableName, query);
+  return <div>
+    {rows && rows.map((row) => (
+        ...
+    ))}
+    {error && <p>Error: {error}</p>}
+  </div>
+}
+
+```
+
+For only one row:
+
+```javascript
+import { useFetchOneRow } from "@saltcorn/react-lib/hooks";
+
+export default function App({ tableName, viewName, state, query }) {
+  const { row, error } = useFetchOneRow(tableName, query);
+  return <div>...</div>;
+}
+```
+
+If you don't need hooks:
+
+```javascript
+import { fetchRows, fetchOneRow } from "@saltcorn/react-lib/api";
+```
+
+## Modify rows
+
+To insert, update or delete rows, take a look at this basic examples:
+
+### Insert row
+
+```javascript
+import { insertRow } from "@saltcorn/react-lib/api";
+
+export default function App({ tableName, viewName, state, query }) {
+  return (
+    <button onClick={() => insertRow(tableName, { name: "John Doe", age: 30 })}>
+      Insert row
+    </button>
+  );
+}
+```
+
+### Update row
+
+```javascript
+import { updateRow } from "@saltcorn/react-lib/api";
+
+export default function App({ tableName, viewName, state, query }) {
+  return (
+    <button
+      onClick={() => updateRow(tableName, 1, { name: "Jane Doe", age: 31 })}
+    >
+      Update row
+    </button>
+  );
+}
+```
+
+### Delete row
+
+```javascript
+import { deleteRow } from "@saltcorn/react-lib/api";
+
+export default function App({ tableName, viewName, state, query }) {
+  return <button onClick={() => deleteRow(tableName, 1)}>Delete row</button>;
+}
+```
