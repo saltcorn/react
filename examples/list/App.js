@@ -16,7 +16,7 @@ export default function App({ rows }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length > 0 ? (
+            {rows && rows.length > 0 ? (
               rows.map((person, index) => (
                 <tr key={person.id}>
                   <td>{index + 1}</td>
