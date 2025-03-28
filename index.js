@@ -399,18 +399,14 @@ const run = async (table_id, viewname, {}, state, extra) => {
     forPublic: !req.user,
   });
   readState(state, fields, req);
-  return div(
-    {
-      "table-name": table.name,
-      "view-name": viewname,
-      state: encodeURIComponent(JSON.stringify(state)),
-      query: encodeURIComponent(JSON.stringify(query)),
-      "rows": encodeURIComponent(JSON.stringify(rows)),
-    },
-    script({
-      src: "/plugins/public/react/bundle.js",
-    }),
-  );
+  return div({
+    class: "_sc_react-view",
+    "table-name": table.name,
+    "view-name": viewname,
+    state: encodeURIComponent(JSON.stringify(state)),
+    query: encodeURIComponent(JSON.stringify(query)),
+    rows: encodeURIComponent(JSON.stringify(rows)),
+  });
 };
 
 const routes = ({
@@ -464,6 +460,11 @@ module.exports = {
       get_state_fields,
       configuration_workflow: () => new Workflow({}),
       run,
+    },
+  ],
+  headers: () => [
+    {
+      script: "/plugins/public/react/bundle.js",
     },
   ],
 };
