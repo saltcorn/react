@@ -61,23 +61,17 @@ const init = () => {
   for (const rootElement of rootElements) {
     const tableName = rootElement.getAttribute("table-name");
     const viewName = rootElement.getAttribute("view-name");
-    const state = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("state"))
-    );
-    const query = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("query"))
-    );
-    const rows = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("rows"))
-    );
+    const state = rootElement.getAttribute("state");
+    const query = rootElement.getAttribute("query");
+    const rows = rootElement.getAttribute("rows");
     const root = createRoot(rootElement);
     root.render(
       <App
         tableName={tableName}
         viewName={viewName}
-        state={state}
-        query={query}
-        rows={rows}
+        state={state ? JSON.parse(decodeURIComponent(state)) : null}
+        query={query ? JSON.parse(decodeURIComponent(query)) : null}
+        rows={rows ? JSON.parse(decodeURIComponent(rows)) : null}
       />
     );
   }
