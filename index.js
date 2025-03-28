@@ -447,9 +447,7 @@ const routes = ({
     },
   ];
 };
-// const base_headers = `/plugins/public/select2@${
-//   require("./package.json").version
-// }`;
+
 module.exports = {
   sc_plugin_api_version: 1,
   plugin_name: "react",
