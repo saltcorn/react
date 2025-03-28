@@ -386,27 +386,37 @@ const get_state_fields = () => [];
 const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
-  const table = Table.findOne(table_id);
-  const fields = table.getFields();
-  const where = stateFieldsToWhere({
-    fields,
-    state,
-    table,
-    prefix: "a.",
-  });
-  const rows = await table.getRows(where, {
-    forUser: req.user,
-    forPublic: !req.user,
-  });
-  readState(state, fields, req);
-  return div({
-    class: "_sc_react-view",
-    "table-name": table.name,
-    "view-name": viewname,
-    state: encodeURIComponent(JSON.stringify(state)),
-    query: encodeURIComponent(JSON.stringify(query)),
-    rows: encodeURIComponent(JSON.stringify(rows)),
-  });
+  if (table_id) {
+    // with table
+    const table = Table.findOne(table_id);
+    const fields = table.getFields();
+    const where = stateFieldsToWhere({
+      fields,
+      state,
+      table,
+      prefix: "a.",
+    });
+    const rows = await table.getRows(where, {
+      forUser: req.user,
+      forPublic: !req.user,
+    });
+    readState(state, fields, req);
+    return div({
+      class: "_sc_react-view",
+      "table-name": table.name,
+      "view-name": viewname,
+      state: encodeURIComponent(JSON.stringify(state)),
+      query: encodeURIComponent(JSON.stringify(query)),
+      rows: encodeURIComponent(JSON.stringify(rows)),
+    });
+  } else {
+    // tableless
+    return div({
+      class: "_sc_react-view",
+      "view-name": viewname,
+      query: encodeURIComponent(JSON.stringify(query)),
+    });
+  }
 };
 
 const routes = ({
@@ -460,6 +470,7 @@ module.exports = {
       get_state_fields,
       configuration_workflow: () => new Workflow({}),
       run,
+      table_optional: true,
     },
   ],
   headers: () => [
