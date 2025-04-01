@@ -1,6 +1,10 @@
 import React from "react";
-import { createRoot } from "react-dom/client";
-import App from "../app-code/App.js";
+import ReactDOM from "react-dom";
+import ReactDOMClient from "react-dom/client";
+
+window.React = React;
+window.ReactDOMClient = ReactDOMClient;
+window.ReactDOM = ReactDOM;
 
 // check if it's a preview in the builder
 const scripts = document.getElementsByTagName("script");
@@ -22,18 +26,26 @@ const init = () => {
     const state = rootElement.getAttribute("state");
     const query = rootElement.getAttribute("query");
     const rows = rootElement.getAttribute("rows");
-    const root = createRoot(rootElement);
-    root.render(
-      <App
-        tableName={tableName}
-        viewName={viewName}
-        state={state ? JSON.parse(decodeURIComponent(state)) : null}
-        query={query ? JSON.parse(decodeURIComponent(query)) : null}
-        rows={rows ? JSON.parse(decodeURIComponent(rows)) : null}
-      />
-    );
+    const root = ReactDOMClient.createRoot(rootElement);
+    const App = window[viewName];
+    if (App)
+      root.render(
+        <App
+          tableName={tableName}
+          viewName={viewName}
+          state={state ? JSON.parse(decodeURIComponent(state)) : null}
+          query={query ? JSON.parse(decodeURIComponent(query)) : null}
+          rows={rows ? JSON.parse(decodeURIComponent(rows)) : null}
+        />
+      );
+    else
+      root.render(
+        <div>
+          <h1>View component not found, please expose {viewName}</h1>
+        </div>
+      );
   }
 };
 
 if (isBuilder) document.addEventListener("preview-loaded", init);
-else init();
+else document.addEventListener("DOMContentLoaded", init);

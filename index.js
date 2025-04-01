@@ -1,27 +1,25 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
-const Table = require("@saltcorn/data/models/table");
-const {
-  stateFieldsToWhere,
-  readState,
-} = require("@saltcorn/data/plugin-helper");
-const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
-const { createWriteStream } = require("fs");
-const db = require("@saltcorn/data/db");
 const path = require("path");
-const { HttpsProxyAgent } = require("https-proxy-agent");
-const { extract } = require("tar");
-const fetch = require("node-fetch");
 
-const runBuild = async (buildMode) => {
+const buildMainBundle = async (buildMode, libPath, libMain) => {
+  getState().log(6, `spawn ${buildMode} build of main bundle`);
   return new Promise((resolve, reject) => {
     const child = spawn(
       "npm",
-      ["run", buildMode === "development" ? "builddev" : "build"],
+      [
+        "run",
+        buildMode === "development" ? "build_main_dev" : "build_main",
+        "--",
+        "--env",
+        `user_lib_path=${libPath}`,
+        "--env",
+        `user_lib_main=${libMain}`,
+      ],
       {
         cwd: __dirname,
       }
@@ -37,206 +35,51 @@ const runBuild = async (buildMode) => {
       resolve(code);
     });
     child.on("error", (msg) => {
-      getState().log(`child process failed: ${msg.code}`);
+      getState().log(2, `child process failed: ${msg.code}`);
       reject(msg.code);
     });
   });
 };
 
-const runLint = async () => {
-  return new Promise((resolve, reject) => {
-    const child = spawn("npm", ["run", "eslint"], {
-      cwd: __dirname,
-    });
-    child.stdout.on("data", (data) => {
-      getState().log(5, data.toString());
-    });
-    child.stderr?.on("data", (data) => {
-      getState().log(2, data.toString());
-    });
-    child.on("exit", function (code, signal) {
-      getState().log(5, `child process exited with code ${code}`);
-      resolve(code);
-    });
-    child.on("error", (msg) => {
-      getState().log(`child process failed: ${msg.code}`);
-      reject(msg.code);
-    });
-  });
-};
-
-const loadFromGitHub = async (repoName, targetDir) => {
-  const tarballUrl = `https://api.github.com/repos/${repoName}/tarball`;
-  const fileName = repoName.split("/").pop();
-  const filePath = await loadTarball(tarballUrl, fileName);
-  await extractTarball(filePath, targetDir);
-  await fs.rm(filePath);
-};
-
-// taken from 'plugins-loader/download_utils.js'
-const getFetchProxyOptions = () => {
-  if (process.env["HTTPS_PROXY"]) {
-    const agent = new HttpsProxyAgent(process.env["HTTPS_PROXY"]);
-    return { agent };
-  } else return {};
-};
-
-// taken from 'plugins-loader/download_utils.js'
-const extractTarball = async (tarFile, destination) => {
-  await extract({
-    file: tarFile,
-    cwd: destination,
-    strip: 1,
-  });
-};
-
-// mostly copied from 'plugins-loader/download_utils.js'
-// unify and move to data module ?
-const loadTarball = async (url, name) => {
-  const options = {
-    headers: {
-      "User-Agent": "request",
-    },
-    ...getFetchProxyOptions(),
-  };
-  const writeTarball = async (res) => {
-    const filePath = path.join(__dirname, `${name}.tar.gz`);
-    const stream = createWriteStream(filePath);
-    res.body.pipe(stream);
-    return new Promise((resolve, reject) => {
-      stream.on("finish", () => {
-        stream.close();
-        resolve(filePath);
-      });
-      stream.on("error", (err) => {
-        stream.close();
-        reject(err);
-      });
-    });
-  };
-
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch tarball: ${response.status} ${response.statusText}`
-    );
-  }
-  return await writeTarball(response);
-};
-
-const emptyDirectory = async (directoryPath) => {
-  try {
-    const files = await fs.readdir(directoryPath);
-    for (const file of files) {
-      const filePath = path.join(directoryPath, file);
-      await fs.rm(filePath, { recursive: true, force: true });
-    }
-  } catch (error) {
-    getState().log(5, `Error emptying directory: ${error.message}`);
-  }
-};
-
-const exists = async (directoryPath) => {
-  try {
-    await fs.access(directoryPath);
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
-
-const prepareDirectory = async ({
-  codeSource,
-  codeLocation,
-  buildMode,
-  provideBundle,
-  doLint,
-}) => {
-  const userCodeDir = path.join(__dirname, "app-code");
-  await emptyDirectory(userCodeDir);
-
-  // Load user code
-  const loadCode = async (source, location) => {
+const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
+  const userLibPath = async (source, location) => {
     switch (source) {
-      case "GitHub":
-        await loadFromGitHub(location, userCodeDir);
-        break;
       case "local":
-        if (!(await exists(location))) {
-          throw new Error(`Local directory ${location} not found`);
-        }
-        await fs.cp(location, userCodeDir, { recursive: true, force: true });
-        break;
+        return location;
       case "Saltcorn folder":
         const folder = await File.findOne(location);
-        if (!folder) {
+        if (!folder)
           throw new Error(`Folder ${location} not found in Saltcorn folders`);
-        }
-        await fs.cp(folder.location, userCodeDir, {
-          recursive: true,
-          force: true,
-        });
-        break;
+        return folder.location;
       default:
         throw new Error("Unknown code source");
     }
   };
-  await loadCode(codeSource, codeLocation);
-
-  // Validate or build the code
-  const validateCode = async () => {
-    if (!(await exists(path.join(userCodeDir, "App.js")))) {
-      throw new Error("App.js not found in user code directory");
-    }
-    if ((doLint || doLint === undefined) && (await runLint(buildMode)) !== 0) {
-      throw new Error("ESLint failed, please check your Server logs");
-    }
-  };
-
-  const validateBundle = async () => {
-    if (!(await exists(path.join(userCodeDir, "dist", "bundle.js")))) {
-      throw new Error("Bundle.js not found in user code directory");
-    }
-  };
-
-  if (provideBundle) {
-    await validateBundle();
-    await fs.cp(
-      path.join(userCodeDir, "dist", "bundle.js"),
-      path.join(__dirname, "public", "bundle.js"),
-      { force: true }
+  const libPath = await userLibPath(codeSource, codeLocation);
+  const userLibMain = async () => {
+    const packageJson = JSON.parse(
+      await fs.readFile(path.join(libPath, "package.json"), "utf8")
     );
-  } else {
-    await validateCode();
-    if ((await runBuild(buildMode)) !== 0) {
-      throw new Error("Webpack failed, please check your Server logs");
+    if (packageJson.main) return packageJson.main;
+    else {
+      throw new Error(
+        "No main field in package.json, please specify the main file"
+      );
     }
+  };
+  if ((await buildMainBundle(buildMode, libPath, await userLibMain())) !== 0) {
+    throw new Error("Webpack failed, please check your Server logs");
   }
 };
 
 const configuration_workflow = () =>
   new Workflow({
     onDone: async (context) => {
-      const {
-        app_code_source,
-        app_code_path,
-        app_code_repo,
-        sc_folder,
-        build_mode,
-        provide_bundle,
-        run_eslint,
-      } = context;
+      const { app_code_source, app_code_path, sc_folder, build_mode } = context;
       await prepareDirectory({
         codeSource: app_code_source,
-        codeLocation:
-          app_code_source === "local"
-            ? app_code_path
-            : app_code_source === "GitHub"
-            ? app_code_repo
-            : sc_folder,
+        codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
         buildMode: build_mode,
-        provideBundle: provide_bundle,
-        doLint: run_eslint,
       });
       return context;
     },
@@ -298,7 +141,7 @@ const configuration_workflow = () =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["GitHub", "Saltcorn folder", "local"],
+                  options: ["Saltcorn folder", "local"],
                 },
                 help: {
                   topic: "Code source",
@@ -312,15 +155,6 @@ const configuration_workflow = () =>
                 type: "String",
                 // required: true (but has problems with app_code_source showIf)
                 showIf: { app_code_source: "local" },
-              },
-              {
-                name: "app_code_repo",
-                label: "GitHub repository name",
-                sublabel:
-                  "Please enter a GitHub repository name with your React code",
-                type: "String",
-                // required: true (but has problems with app_code_source showIf)
-                showIf: { app_code_source: "GitHub" },
               },
               {
                 name: "sc_folder",
@@ -345,26 +179,6 @@ const configuration_workflow = () =>
                   options: ["production", "development"],
                 },
               },
-              {
-                name: "provide_bundle",
-                label: "Provide your own bundle",
-                sublabel: "Do you want to provide your own bundle?",
-                type: "Bool",
-                required: true,
-                default: false,
-                help: {
-                  topic: "Provide bundle",
-                  plugin: "react",
-                },
-              },
-              {
-                name: "run_eslint",
-                label: "Run ESLint",
-                sublabel: "Do you want to run ESLint on your code?",
-                type: "Bool",
-                default: true,
-                showIf: { provide_bundle: false },
-              },
             ],
             additionalButtons: [
               {
@@ -380,54 +194,7 @@ const configuration_workflow = () =>
     ],
   });
 
-const get_state_fields = () => [];
-
-// TODO default state, joinFields, aggregations, include_fml, exclusion_relation
-const run = async (table_id, viewname, {}, state, extra) => {
-  const req = extra.req;
-  const query = req.query || {};
-  if (table_id) {
-    // with table
-    const table = Table.findOne(table_id);
-    const fields = table.getFields();
-    const where = stateFieldsToWhere({
-      fields,
-      state,
-      table,
-      prefix: "a.",
-    });
-    const rows = await table.getRows(where, {
-      forUser: req.user,
-      forPublic: !req.user,
-    });
-    readState(state, fields, req);
-    return div({
-      class: "_sc_react-view",
-      "table-name": table.name,
-      "view-name": viewname,
-      state: encodeURIComponent(JSON.stringify(state)),
-      query: encodeURIComponent(JSON.stringify(query)),
-      rows: encodeURIComponent(JSON.stringify(rows)),
-    });
-  } else {
-    // tableless
-    return div({
-      class: "_sc_react-view",
-      "view-name": viewname,
-      query: encodeURIComponent(JSON.stringify(query)),
-    });
-  }
-};
-
-const routes = ({
-  app_code_source,
-  app_code_path,
-  app_code_repo,
-  sc_folder,
-  build_mode,
-  provide_bundle,
-  run_eslint,
-}) => {
+const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
   return [
     {
       url: "/react/run_build",
@@ -437,20 +204,12 @@ const routes = ({
         getState().log(
           6,
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
-            `app_code_repo: ${app_code_repo}, sc_folder: ${sc_folder}, build_mode: ${build_mode}, ` +
-            `provide_bundle: ${provide_bundle}, run_eslint: ${run_eslint}`
+            `sc_folder: ${sc_folder}, build_mode: ${build_mode}, `
         );
         await prepareDirectory({
           codeSource: app_code_source,
-          codeLocation:
-            app_code_source === "local"
-              ? app_code_path
-              : app_code_source === "GitHub"
-              ? app_code_repo
-              : sc_folder,
+          codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
           buildMode: build_mode,
-          provideBundle: provide_bundle,
-          doLint: run_eslint,
         });
         res.json({ notify_success: "Build successful" });
       },
@@ -463,19 +222,31 @@ module.exports = {
   plugin_name: "react",
   configuration_workflow,
   routes,
-  viewtemplates: (cfg) => [
-    {
-      name: "React",
-      description: "React view",
-      get_state_fields,
-      configuration_workflow: () => new Workflow({}),
-      run,
-      table_optional: true,
-    },
-  ],
+  viewtemplates: (cfg) => [require("./react_view")],
   headers: () => [
     {
-      script: "/plugins/public/react/bundle.js",
+      script: "/plugins/public/react/main_bundle.js",
     },
   ],
+  onLoad: async (configuration) => {
+    try {
+      const mainBundlePath = path.join(__dirname, "public", "main_bundle.js");
+      const mainBundleExists = await fs
+        .access(mainBundlePath)
+        .then(() => true)
+        .catch(() => false);
+      if (!mainBundleExists) {
+        getState().log(5, "Main bundle does not exist, building it now");
+        const { app_code_source, app_code_path, sc_folder, build_mode } =
+          configuration;
+        await prepareDirectory({
+          codeSource: app_code_source,
+          codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
+          buildMode: build_mode,
+        });
+      }
+    } catch (e) {
+      getState().log(2, `Error building main bundle: ${e.message}`);
+    }
+  },
 };
