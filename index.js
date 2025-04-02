@@ -51,6 +51,8 @@ const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
         if (!folder)
           throw new Error(`Folder ${location} not found in Saltcorn folders`);
         return folder.location;
+      case "Not set":
+        return null;
       default:
         throw new Error("Unknown code source");
     }
@@ -67,7 +69,13 @@ const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
       );
     }
   };
-  if ((await buildMainBundle(buildMode, libPath, await userLibMain())) !== 0) {
+  if (
+    (await buildMainBundle(
+      buildMode,
+      libPath,
+      libPath ? await userLibMain() : null
+    )) !== 0
+  ) {
     throw new Error("Webpack failed, please check your Server logs");
   }
 };
@@ -78,7 +86,12 @@ const configuration_workflow = () =>
       const { app_code_source, app_code_path, sc_folder, build_mode } = context;
       await prepareDirectory({
         codeSource: app_code_source,
-        codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
+        codeLocation:
+          app_code_source === "local"
+            ? app_code_path
+            : app_code_source === "Saltcorn folder"
+            ? sc_folder
+            : null,
         buildMode: build_mode,
       });
       return context;
@@ -90,12 +103,12 @@ const configuration_workflow = () =>
           const directories = await File.find({ isDirectory: true });
           return new Form({
             blurb:
-              "This plugin allows you to use React code in Saltcorn views. " +
-              "The following configurations control where the React code comes from " +
-              "and how the bundle.js file is generated. " +
-              "Only one bundle can exist, and you decide at runtime what to display." +
-              "You can use the 'Build' button to generate the bundle.js file and stay on the page, " +
-              "or click 'Finish' to build and complete the process. For an example, " +
+              "This plugin allows using React code in Saltcorn views. " +
+              "A global main bundle containing React and your custom React components, " +
+              "and a bundle per view with the Saltcorn view-specific code are needed. " +
+              "Here you can create the main bundle, a view bundle comes from the view config dialog. " +
+              "The 'Build' button generates the main bundle and stays on the page, " +
+              "'Finish' builds and completes the process. For an example, " +
               "take a look at the <a href='https://github.com/saltcorn/react' target='_blank'>README</a>",
             additionalHeaders: [
               {
@@ -141,7 +154,7 @@ const configuration_workflow = () =>
                 type: "String",
                 required: true,
                 attributes: {
-                  options: ["Saltcorn folder", "local"],
+                  options: ["Saltcorn folder", "local", "Not set"],
                 },
                 help: {
                   topic: "Code source",
@@ -208,7 +221,12 @@ const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
         );
         await prepareDirectory({
           codeSource: app_code_source,
-          codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
+          codeLocation:
+            app_code_source === "local"
+              ? app_code_path
+              : app_code_source === "Saltcorn folder"
+              ? sc_folder
+              : null,
           buildMode: build_mode,
         });
         res.json({ notify_success: "Build successful" });
@@ -241,7 +259,12 @@ module.exports = {
           configuration;
         await prepareDirectory({
           codeSource: app_code_source,
-          codeLocation: app_code_source === "local" ? app_code_path : sc_folder,
+          codeLocation:
+            app_code_source === "local"
+              ? app_code_path
+              : app_code_source === "Saltcorn folder"
+              ? sc_folder
+              : null,
           buildMode: build_mode,
         });
       }

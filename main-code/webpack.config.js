@@ -2,8 +2,12 @@ const path = require("path");
 const { ModuleFederationPlugin } = require("webpack").container;
 
 module.exports = async (env) => {
+  console.log("Webpack env", env);
   const userLibMainFile = env.user_lib_main;
-  const indexPath = path.join(env.user_lib_path, userLibMainFile);
+  const indexPath =
+    userLibMainFile !== "null"
+      ? path.join(env.user_lib_path, userLibMainFile)
+      : null;
   return {
     entry: path.join(__dirname, "./index.js"),
     output: {
@@ -28,10 +32,12 @@ module.exports = async (env) => {
       new ModuleFederationPlugin({
         name: "main",
         filename: "main_bundle.js",
-        exposes: {
-          "./index": indexPath,
-          ".": indexPath,
-        },
+        exposes: indexPath
+          ? {
+              "./index": indexPath,
+              ".": indexPath,
+            }
+          : {},
       }),
     ],
     resolve: {
