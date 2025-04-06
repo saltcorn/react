@@ -103,9 +103,9 @@ const configuration_workflow = () =>
           const directories = await File.find({ isDirectory: true });
           return new Form({
             blurb:
-              "This plugin allows using React code in Saltcorn views. " +
-              "A global main bundle containing React and your custom React components, " +
-              "and a bundle per view with the Saltcorn view-specific code are needed. " +
+              "This plugin allows using React in Saltcorn views. " +
+              "You need a global main bundle with React and your custom React components, " +
+              "plus a bundle per view with some view-specific code. " +
               "Here you can create the main bundle, a view bundle comes from the view config dialog. " +
               "The 'Build' button generates the main bundle and stays on the page, " +
               "'Finish' builds and completes the process. For an example, " +

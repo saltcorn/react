@@ -1,10 +1,18 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import ReactDOMClient from "react-dom/client";
+import { components } from "@user-lib";
 
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
 window.ReactDOM = ReactDOM;
+window.react_ctx = window.react_ctx || {};
+
+window.addReactView = (scViewName, component) => {
+  window.react_ctx[scViewName] = component;
+};
+
+window.reactUserComponents = components;
 
 // check if it's a preview in the builder
 const scripts = document.getElementsByTagName("script");
@@ -27,7 +35,7 @@ const init = () => {
     const query = rootElement.getAttribute("query");
     const rows = rootElement.getAttribute("rows");
     const root = ReactDOMClient.createRoot(rootElement);
-    const App = window[viewName];
+    const App = window.react_ctx[viewName];
     if (App)
       root.render(
         <App

@@ -70,10 +70,11 @@ const scriptAdder = (viewname) =>
     }
   }
   if (!isLoaded) { 
-    const src = '/plugins/public/react/${viewname}_bundle.js';
     const script = document.createElement('script');
-    script.src = src;
-    document.body.appendChild(script);
+    script.src = '/plugins/public/react/${viewname}_bundle.js';
+    const contentDiv = document.getElementById('content');
+    if (contentDiv) contentDiv.appendChild(script);
+    else document.body.appendChild(script);
   }`);
 
 // TODO default state, joinFields, aggregations, include_fml, exclusion_relation

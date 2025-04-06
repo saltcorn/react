@@ -12,7 +12,6 @@ module.exports = async (env) => {
     entry: path.join(__dirname, "./index.js"),
     output: {
       path: path.join(__dirname, "..", "public"),
-      filename: "bundle.js",
     },
     module: {
       rules: [
@@ -38,9 +37,40 @@ module.exports = async (env) => {
               ".": indexPath,
             }
           : {},
+        shared: {
+          react: {
+            singleton: true,
+            requiredVersion: "^19.0.0",
+            eager: true,
+          },
+          "react-dom": {
+            singleton: true,
+            requiredVersion: "^19.0.0",
+            eager: true,
+          },
+          "@saltcorn/react-lib": {
+            singleton: true,
+            requiredVersion: "0.0.1-beta.1",
+            eager: true,
+          },
+        },
       }),
     ],
+
     resolve: {
+      alias: {
+        "@user-lib": path.join(env.user_lib_path, userLibMainFile),
+        react: path.resolve(__dirname, "../node_modules/react"),
+        "react-dom": path.resolve(__dirname, "../node_modules/react-dom"),
+        "@saltcorn/react-lib": path.resolve(
+          __dirname,
+          "../node_modules/@saltcorn/react-lib/dist/"
+        ),
+        "@saltcorn/react-lib/hooks": path.resolve(
+          __dirname,
+          "../node_modules/@saltcorn/react-lib/dist/hooks"
+        ),
+      },
       extensions: [".js", ".jsx"],
     },
   };
