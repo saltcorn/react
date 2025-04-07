@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import ReactDOMClient from "react-dom/client";
-import { components } from "@user-lib";
+
+import * as userLib from "@user-lib";
 
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
@@ -12,7 +13,7 @@ window.addReactView = (scViewName, component) => {
   window.react_ctx[scViewName] = component;
 };
 
-window.reactUserComponents = components;
+window.reactUserLib = userLib;
 
 // check if it's a preview in the builder
 const scripts = document.getElementsByTagName("script");

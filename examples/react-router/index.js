@@ -26,16 +26,16 @@ export const components = {
   PersonsApp,
 };
 
+/*
+user-code:
 
-// use this user-code in your view-config
-
-/*import React, { Suspense } from "react";
-const { PersonsApp } = window.reactUserComponents;
+import React from "react";
+const { PersonsApp } = reactUserLib.components;
 
 function App() {
   return (
     <PersonsApp />
   );
 }
-window.addReactView("PersonsReactList", App);
+addReactView("PersonsReactList", App);
 */
