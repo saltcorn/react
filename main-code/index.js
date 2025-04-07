@@ -1,18 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import ReactDOMClient from "react-dom/client";
+import { init, loadRemote } from "@module-federation/runtime";
 
 import * as userLib from "@user-lib";
 
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
 window.ReactDOM = ReactDOM;
-window.react_ctx = window.react_ctx || {};
-
-window.addReactView = (scViewName, component) => {
-  window.react_ctx[scViewName] = component;
-};
-
 window.reactUserLib = userLib;
 
 // check if it's a preview in the builder
@@ -27,34 +22,34 @@ for (const script of scripts) {
 
 // find all divs with class "_sc_react-view"
 // and render the App component in each of them
-const init = () => {
+const initMain = async () => {
+  const remotesCfg = {
+    name: "main",
+    remotes: [],
+  };
   const rootElements = document.getElementsByClassName("_sc_react-view");
   for (const rootElement of rootElements) {
-    const tableName = rootElement.getAttribute("table-name");
     const viewName = rootElement.getAttribute("view-name");
+    if (remotesCfg.remotes.some((r) => r.name === viewName)) continue;
+    remotesCfg.remotes.push({
+      name: viewName,
+      entry: `./plugins/public/react/${viewName}_remote.js`,
+    });
+  }
+
+  init(remotesCfg);
+  for (const rootElement of rootElements) {
+    const viewName = rootElement.getAttribute("view-name");
+    const tableName = rootElement.getAttribute("table-name");
     const state = rootElement.getAttribute("state");
     const query = rootElement.getAttribute("query");
     const rows = rootElement.getAttribute("rows");
+    const remote = await loadRemote(viewName);
+    const props = { tableName, state, query, rows };
     const root = ReactDOMClient.createRoot(rootElement);
-    const App = window.react_ctx[viewName];
-    if (App)
-      root.render(
-        <App
-          tableName={tableName}
-          viewName={viewName}
-          state={state ? JSON.parse(decodeURIComponent(state)) : null}
-          query={query ? JSON.parse(decodeURIComponent(query)) : null}
-          rows={rows ? JSON.parse(decodeURIComponent(rows)) : null}
-        />
-      );
-    else
-      root.render(
-        <div>
-          <h1>View component not found, please expose {viewName}</h1>
-        </div>
-      );
+    root.render(React.createElement(remote.default, props));
   }
 };
 
-if (isBuilder) document.addEventListener("preview-loaded", init);
-else document.addEventListener("DOMContentLoaded", init);
+if (isBuilder) document.addEventListener("preview-loaded", initMain);
+else document.addEventListener("DOMContentLoaded", initMain);

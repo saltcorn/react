@@ -3,6 +3,7 @@ const { ModuleFederationPlugin } = require("webpack").container;
 
 module.exports = (env) => {
   const entryFile = env.user_code_file;
+  const federationName = env.federation_name;
   return {
     entry: path.join(__dirname, entryFile),
     output: {
@@ -12,10 +13,15 @@ module.exports = (env) => {
     },
     plugins: [
       new ModuleFederationPlugin({
-        name: "consumer",
+        name: federationName,
         remotes: {
           main: "var main",
         },
+        exposes: {
+          "./App": path.join(__dirname, entryFile),
+          ".": path.join(__dirname, entryFile),
+        },
+        filename: `${federationName}_remote.js`,
       }),
     ],
     module: {

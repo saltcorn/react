@@ -26,6 +26,8 @@ const buildViewBundle = async (buildMode, viewName) => {
         `bundle_name=${viewName}_bundle.js`,
         "--env",
         `user_code_file=${userCodeFile}`,
+        "--env",
+        `federation_name=${viewName}`,
       ],
       {
         cwd: __dirname,
@@ -58,25 +60,6 @@ const handleUserCode = async (userCode, buildMode, viewName) => {
 
 const get_state_fields = () => [];
 
-const scriptAdder = (viewname) =>
-  script(`
-  // check if script is already loaded
-  const scripts = document.getElementsByTagName('script');
-  let isLoaded = false;
-  for (const script of scripts) {
-    if (script.src.includes('${viewname}_bundle.js')) {
-      isLoaded = true;
-      break;
-    }
-  }
-  if (!isLoaded) { 
-    const script = document.createElement('script');
-    script.src = '/plugins/public/react/${viewname}_bundle.js';
-    const contentDiv = document.getElementById('content');
-    if (contentDiv) contentDiv.appendChild(script);
-    else document.body.appendChild(script);
-  }`);
-
 // TODO default state, joinFields, aggregations, include_fml, exclusion_relation
 const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
@@ -96,27 +79,21 @@ const run = async (table_id, viewname, {}, state, extra) => {
       forPublic: !req.user,
     });
     readState(state, fields, req);
-    return div(
-      {
-        class: "_sc_react-view",
-        "table-name": table.name,
-        "view-name": viewname,
-        state: encodeURIComponent(JSON.stringify(state)),
-        query: encodeURIComponent(JSON.stringify(query)),
-        rows: encodeURIComponent(JSON.stringify(rows)),
-      },
-      scriptAdder(viewname)
-    );
+    return div({
+      class: "_sc_react-view",
+      "table-name": table.name,
+      "view-name": viewname,
+      state: encodeURIComponent(JSON.stringify(state)),
+      query: encodeURIComponent(JSON.stringify(query)),
+      rows: encodeURIComponent(JSON.stringify(rows)),
+    });
   } else {
     // tableless
-    return div(
-      {
-        class: "_sc_react-view",
-        "view-name": viewname,
-        query: encodeURIComponent(JSON.stringify(query)),
-      },
-      scriptAdder(viewname)
-    );
+    return div({
+      class: "_sc_react-view",
+      "view-name": viewname,
+      query: encodeURIComponent(JSON.stringify(query)),
+    });
   }
 };
 
