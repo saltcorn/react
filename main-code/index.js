@@ -44,7 +44,7 @@ const initMain = async () => {
     const state = rootElement.getAttribute("state");
     const query = rootElement.getAttribute("query");
     const rows = rootElement.getAttribute("rows");
-    const remote = await loadRemote(viewName);
+    const remote = await loadRemote(`${viewName}/${viewName}`);
     const props = { tableName, state, query, rows };
     const root = ReactDOMClient.createRoot(rootElement);
     root.render(React.createElement(remote.default, props));

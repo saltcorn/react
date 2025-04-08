@@ -12,8 +12,6 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs").promises;
 
-const userCodeFile = "App.js";
-
 const buildViewBundle = async (buildMode, viewName) => {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -23,11 +21,7 @@ const buildViewBundle = async (buildMode, viewName) => {
         buildMode === "development" ? "build_view_dev" : "build_view",
         "--",
         "--env",
-        `bundle_name=${viewName}_bundle.js`,
-        "--env",
-        `user_code_file=${userCodeFile}`,
-        "--env",
-        `federation_name=${viewName}`,
+        `view_name=${viewName}`,
       ],
       {
         cwd: __dirname,
@@ -52,7 +46,11 @@ const buildViewBundle = async (buildMode, viewName) => {
 
 const handleUserCode = async (userCode, buildMode, viewName) => {
   const userCodeDir = path.join(__dirname, "user-code");
-  await fs.writeFile(path.join(userCodeDir, userCodeFile), userCode, "utf8");
+  await fs.writeFile(
+    path.join(userCodeDir, `${viewName}.js`),
+    userCode,
+    "utf8"
+  );
   if ((await buildViewBundle(buildMode, viewName)) !== 0) {
     throw new Error("Build failed please check your server logs");
   }
