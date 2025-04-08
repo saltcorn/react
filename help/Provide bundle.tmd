@@ -1,4 +1,0 @@
-You can either provide your React code and let the system bundle it, or supply your own bundle.js file. The file must be located in a **dist** folder within your **Code source** location.
-
-For an example take a look at <a href="https://github.com/saltcorn/react/tree/main/examples/provide-own-bundle">examples/provide-own-bundle</a>
-

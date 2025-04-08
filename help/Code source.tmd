@@ -1,4 +1,3 @@
 Describes the source type where you get your React code from. The options are:
   - **Saltcorn folder**: The React code is in a folder in the Saltcorn directory. The folder is selected in the input below.
-  - **GitHub**: To get the code from a GitHub repository. To use https://github.com/christianhugoch/react-view-example, enter **christianhugoch/react-view-example** in the **GitHub repository name** input.
   - **Local**: To get the code from a folder on your local server filesystem (**Path to code** input).

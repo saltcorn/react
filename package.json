@@ -4,8 +4,10 @@
   "description": "integrate React components in your Saltcorn application",
   "main": "index.js",
   "scripts": {
-    "build": "webpack --mode production --config build-setup/webpack.config.js",
-    "builddev": "webpack --mode development --config build-setup/webpack.config.js",
+    "build_view": "webpack --mode production --config user-code/webpack.config.js",
+    "build_view_dev": "webpack --mode development --config user-code/webpack.config.js",
+    "build_main": "webpack --mode production --config main-code/webpack.config.js",
+    "build_main_dev": "webpack --mode development --config main-code/webpack.config.js",
     "eslint": "eslint ./app-code"
   },
   "dependencies": {
@@ -22,7 +24,9 @@
     "eslint": "9.22.0",
     "eslint-plugin-react": "^7.37.4",
     "globals": "^16.0.0",
-    "@saltcorn/react-lib": "0.0.1-beta.1"
+    "react-lazily": "0.9.2",
+    "@saltcorn/react-lib": "0.0.1-beta.1",
+    "@module-federation/runtime": "0.11.3"
   },
   "author": "Christian Hugo",
   "license": "MIT",

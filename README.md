@@ -4,13 +4,15 @@ Plugin to integrate React components in your Saltcorn application.
 
 # Example to get started
 
-1. Create a directory for your React code (**my_react_code** for example)
-2. In **my_react_code**, create an App.js file with the following content:
+1. Install the plugin, open the configuration and set **Code source** to **Not set**.
+2. Click build or finish.
+3. Create a view (**myReactView**) with the React view pattern (the view table is less important for now).
+4. In the view configuration, write your React code in the editor. <br> For example:
 
 ```javascript
 import React from "react";
 
-export default function App({ tableName, viewName }) {
+default function App({ tableName, viewName }) {
   return (
     <div>
       <h1>{viewName}</h1>
@@ -18,13 +20,14 @@ export default function App({ tableName, viewName }) {
     </div>
   );
 }
+window.react_views.myReactView = App;
 ```
 
-3. Open the plugin configuration, set **Code source** to **Saltcorn folder**, and in the input below, select **my_react_code** <br>(if the correct directory was already selected, select another one and then choose **my_react_code** again to trigger a save).
-4. Click build or finish.
-5. Create a view with the React view pattern (the view table is less important for now). <br> When you open it, it renders the output from App.js.
+Please make sure to export `App` in `window.react_views` with the name of your view.
 
-When everything went well, you now have a bundle.js of your React code in the public folder of **@saltcorn/react**. Only one bundle can exist, and you decide at runtime what to display for `{tablename, viewname}`.
+5. Click build or finish.
+
+When everything went well, you now have a global main bundle and a view specific bundle of your React code in the public folder of **@saltcorn/react**.
 
 The component also has access to **state**, **query** and **rows**:
 
@@ -38,20 +41,9 @@ The plugin configuration has the following options:
 
 - **Code source**: Describes the source type where you get your React code from. The options are:
   - **Saltcorn folder**: The React code is in a folder in the Saltcorn directory. The folder is selected in the input below.
-  - **GitHub**: To get the code from a GitHub repository. To use https://github.com/christianhugoch/react-view-example, enter **christianhugoch/react-view-example** in the **GitHub repository name** input.
   - **Local**: To get the code from a folder on your local server filesystem (**Path to code** input).
+  - **Not set**: No code source is set. You define the code completely in the view configuration.
 - **Build mode**: Build your bundle.js for development or production. Use development for debugging and production for minified deployment code.
-- **Provide your own bundle**: You can either provide your React code as shown in the example above and let the system bundle it, or supply your own bundle.js file. The file must be located in a **dist** folder within your **Code source** location (see examples/provide-own-bundle).
-
-```javascript
-import React from "react";
-
-function App({ tableName, viewName, state, query, rows }) { ... }
-
-window.App = App;
-```
-
-- **Run ESLint**: You can run ESLint on your code before building the bundle. If activated and there are any ESLint errors, the build fails. (only available if **Provide your own bundle** is not selected)
 
 # react-lib
 

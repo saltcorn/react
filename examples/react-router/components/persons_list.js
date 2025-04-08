@@ -1,12 +1,14 @@
 import React from "react";
 import { useFetchRows } from "@saltcorn/react-lib/hooks";
+import { useHistory } from "react-router-dom";
 
-export default function App({ tableName, query }) {
-  const { rows, error } = useFetchRows(tableName, query);
+export default function PersonsList() {
+  const { rows, error } = useFetchRows("Persons", {});
+  const history = useHistory();
 
-  if (error) {
-    return <div className="container mt-4 text-danger">Error: {error}</div>;
-  }
+  const handleRowClick = (person) => {
+    history.push(`/view/PersonsReactList/${person.id}`);
+  };
 
   return (
     <div className="container mt-4">
@@ -23,9 +25,13 @@ export default function App({ tableName, query }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length > 0 ? (
+            {rows && rows.length > 0 ? (
               rows.map((person, index) => (
-                <tr key={person.person_id}>
+                <tr
+                  key={person.id}
+                  onClick={() => handleRowClick(person)}
+                  style={{ cursor: "pointer" }}
+                >
                   <td>{index + 1}</td>
                   <td>{person.first_name}</td>
                   <td>{person.last_name}</td>

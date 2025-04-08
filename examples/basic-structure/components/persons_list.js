@@ -1,6 +1,23 @@
-import React from "react";
+import React, { useState } from "react";
+import PersonDetailsModal from "./person_modal";
 
-export default function App({ rows }) {
+import { useFetchRows } from "@saltcorn/react-lib/hooks";
+
+export default function PersonsList({}) {
+  const { rows, error } = useFetchRows("Persons", {});
+  const [selectedPerson, setSelectedPerson] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleRowClick = (person) => {
+    setSelectedPerson(person);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedPerson(null);
+  };
+
   return (
     <div className="container mt-4">
       <h2 className="mb-4">Persons List</h2>
@@ -18,7 +35,11 @@ export default function App({ rows }) {
           <tbody>
             {rows && rows.length > 0 ? (
               rows.map((person, index) => (
-                <tr key={person.id}>
+                <tr
+                  key={person.id}
+                  onClick={() => handleRowClick(person)}
+                  style={{ cursor: "pointer" }}
+                >
                   <td>{index + 1}</td>
                   <td>{person.first_name}</td>
                   <td>{person.last_name}</td>
@@ -36,6 +57,12 @@ export default function App({ rows }) {
           </tbody>
         </table>
       </div>
+
+      <PersonDetailsModal
+        person={selectedPerson}
+        isOpen={isModalOpen}
+        onClose={closeModal}
+      />
     </div>
   );
 }
