@@ -41,9 +41,15 @@ const initMain = async () => {
   for (const rootElement of rootElements) {
     const viewName = rootElement.getAttribute("view-name");
     const tableName = rootElement.getAttribute("table-name");
-    const state = rootElement.getAttribute("state");
-    const query = rootElement.getAttribute("query");
-    const rows = rootElement.getAttribute("rows");
+    const state = JSON.parse(
+      decodeURIComponent(rootElement.getAttribute("state"))
+    );
+    const query = JSON.parse(
+      decodeURIComponent(rootElement.getAttribute("query"))
+    );
+    const rows = JSON.parse(
+      decodeURIComponent(rootElement.getAttribute("rows"))
+    );
     const remote = await loadRemote(`${viewName}/${viewName}`);
     const props = { tableName, state, query, rows };
     const root = ReactDOMClient.createRoot(rootElement);
