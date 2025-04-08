@@ -25,17 +25,3 @@ function PersonsApp() {
 export const components = {
   PersonsApp,
 };
-
-/*
-user-code:
-
-import React from "react";
-const { PersonsApp } = reactUserLib.components;
-
-function App() {
-  return (
-    <PersonsApp />
-  );
-}
-addReactView("PersonsReactList", App);
-*/
