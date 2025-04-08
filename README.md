@@ -4,30 +4,67 @@ Plugin to integrate React components in your Saltcorn application.
 
 # Example to get started
 
-1. Install the plugin, open the configuration and set **Code source** to **Not set**.
-2. Click build or finish.
-3. Create a view (**myReactView**) with the React view pattern (the view table is less important for now).
-4. In the view configuration, write your React code in the editor. <br> For example:
+1. Create a directory on your server filesystem or in the Saltcorn files manager and call it **getting-started-lib**.
+2. In getting-started-lib, create a package.json and an index.js file with the following content:
+
+```json
+{
+  "name": "getting-started-lib",
+  "version": "0.0.1",
+  "description": "Basic components lib",
+  "main": "index.js",
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
+```
 
 ```javascript
 import React from "react";
 
-default function App({ tableName, viewName }) {
+function PersonsList({ rows }) {
   return (
     <div>
-      <h1>{viewName}</h1>
-      <p>Table name: {tableName}</p>
+      {rows && rows.length
+        ? rows.map((row) => {
+            return Object.entries(row).map(([key, value]) => (
+              <div key={key}>
+                <h3>
+                  {key}: {value}
+                </h3>
+              </div>
+            ));
+          })
+        : "No data available"}
     </div>
   );
 }
-window.react_views.myReactView = App;
+
+export const components = {
+  PersonsList,
+};
 ```
 
-Please make sure to export `App` in `window.react_views` with the name of your view.
+3. Install the react plugin and open the plugin configuration.
+4. Depending on step 1, set Code source to **local** or **Saltcorn folder** and select or enter the directory with the package.json and index.js file.
+5. Set the **Build mode** to **development** and click build or Finish.
+   <br/>When everything went well, you now have a global main bundle with React and your getting-started-lib.
+6. Create a view with the React Pattern, select any table and call the view **gettingStartedView** <br />(Please don't use whitespaces or other special character).
+7. In the view configuration enter this user code:
 
-5. Click build or finish.
+```javascript
+import React from "react";
+const { PersonsList } = reactUserLib.components;
 
-When everything went well, you now have a global main bundle and a view specific bundle of your React code in the public folder of **@saltcorn/react**.
+export default function App({ rows }) {
+  return <PersonsList rows={rows} />;
+}
+```
+
+and click Build or Finish.
+
+8. Open the view and you should see a simple listing of your rows.
 
 The component also has access to **state**, **query** and **rows**:
 
@@ -47,7 +84,7 @@ The plugin configuration has the following options:
 
 # react-lib
 
-The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks and functions to interact with the Saltcorn system. <br>
+The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks and functions to interact with the Saltcorn system. To use it, add it as peerDependency in your components-lib.<br>
 The following examples are basic, more complete code can be found [here](https://github.com/saltcorn/react/tree/main/examples).
 
 Note: If you provide your own bundle, you need to integrate **react-lib** yourself.
