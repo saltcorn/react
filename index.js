@@ -246,6 +246,7 @@ module.exports = {
       script: "/plugins/public/react/main_bundle.js",
     },
   ],
+  copilot_skills: require("./copilot-skill"),
   onLoad: async (configuration) => {
     try {
       const mainBundlePath = path.join(__dirname, "public", "main_bundle.js");
