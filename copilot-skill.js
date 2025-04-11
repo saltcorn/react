@@ -1,8 +1,18 @@
 const View = require("@saltcorn/data/models/view");
 const Table = require("@saltcorn/data/models/table");
 const User = require("@saltcorn/data/models/user");
+const { a, pre, script, div, code } = require("@saltcorn/markup/tags");
 
-module.export = (cfg) => ({
+function escapeHtml(unsafe) {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+module.exports = (cfg) => ({
   title: "Generate React View",
   function_name: "generate_react_view",
   description: "Generate React View",
@@ -48,7 +58,9 @@ export default function App({}) {
 You must include the react import, and your generated code should export default the component.`;
   },
   render_html({ react_code, view_name }) {
-    return div({ class: "mb-3" }, view_name) + pre(code(react_code));
+    return (
+      div({ class: "mb-3" }, view_name) + pre(code(escapeHtml(react_code)))
+    );
   },
   async execute({ react_code, view_name, view_description, min_role }) {
     const name = view_name;
