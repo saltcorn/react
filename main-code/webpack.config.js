@@ -25,6 +25,10 @@ module.exports = async (env) => {
             },
           },
         },
+        {
+          test: /\.css$/,
+          use: ["style-loader", "css-loader"],
+        },
       ],
     },
     plugins: [
