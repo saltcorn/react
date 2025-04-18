@@ -46,12 +46,13 @@ const buildViewBundle = async (buildMode, viewName) => {
 
 const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
 
-const handleUserCode = async (userCode, buildMode, viewName) => {
+const handleUserCode = async (userCode, buildMode, tableId, viewName) => {
   const userCodeDir = path.join(__dirname, "user-code");
+  const safeUserCode = userCode || defaultUserCode(tableId);
   const safeViewName = buildSafeViewName(viewName);
   await fs.writeFile(
     path.join(userCodeDir, `${safeViewName}.js`),
-    userCode,
+    safeUserCode,
     "utf8"
   );
   if ((await buildViewBundle(buildMode, safeViewName)) !== 0) {
@@ -61,11 +62,11 @@ const handleUserCode = async (userCode, buildMode, viewName) => {
 
 const get_state_fields = () => [];
 
-const defaultUserCode = (context) => {
+const defaultUserCode = (tableId) => {
   return `import React from "react";
 
 export default function App({ viewName, query${
-    context?.table_id ? ", state, tableName, rows" : " "
+    tableId ? ", state, tableName, rows" : " "
   } }) {
   return <h3>default user code</h3>;
 };
@@ -111,6 +112,7 @@ const configuration_workflow = () =>
       await handleUserCode(
         context.user_code,
         context.build_mode,
+        context.table_id,
         context.viewname
       );
       return context;
@@ -156,7 +158,7 @@ const configuration_workflow = () =>
             ...(userCodeUndefined
               ? {
                   values: {
-                    user_code: defaultUserCode(context),
+                    user_code: defaultUserCode(context?.table_id),
                   },
                 }
               : {}),
@@ -174,7 +176,7 @@ const build_user_code = async (
   { req }
 ) => {
   try {
-    await handleUserCode(user_code, build_mode, viewname);
+    await handleUserCode(user_code, build_mode, table_id, viewname);
     return { json: { notify_success: "Build successful" } };
   } catch (e) {
     return { json: { error: e.message || "An error occured" } };
