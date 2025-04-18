@@ -40,18 +40,18 @@ const initMain = async () => {
   init(remotesCfg);
   for (const rootElement of rootElements) {
     const viewName = rootElement.getAttribute("view-name");
-    const tableName = rootElement.getAttribute("table-name");
     const state = JSON.parse(
       decodeURIComponent(rootElement.getAttribute("state"))
     );
     const query = JSON.parse(
       decodeURIComponent(rootElement.getAttribute("query"))
     );
+    const tableName = rootElement.getAttribute("table-name");
     const rows = JSON.parse(
       decodeURIComponent(rootElement.getAttribute("rows"))
     );
     const remote = await loadRemote(`${viewName}/${viewName}`);
-    const props = { tableName, state, query, rows };
+    const props = { tableName, viewName, state, query, rows };
     const root = ReactDOMClient.createRoot(rootElement);
     root.render(React.createElement(remote.default, props));
   }
