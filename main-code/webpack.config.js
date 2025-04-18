@@ -36,7 +36,9 @@ module.exports = async (env) => {
               "./index": indexPath,
               ".": indexPath,
             }
-          : {},
+          : {
+              "./index": path.join(__dirname, "./user-lib-mock.js"),
+            },
         shared: {
           react: {
             singleton: true,
@@ -59,7 +61,10 @@ module.exports = async (env) => {
 
     resolve: {
       alias: {
-        "@user-lib": path.join(env.user_lib_path, userLibMainFile),
+        "@user-lib":
+          userLibMainFile !== "null"
+            ? path.join(env.user_lib_path, userLibMainFile)
+            : path.join(__dirname, "user-lib-mock.js"),
         react: path.resolve(__dirname, "../node_modules/react"),
         "react-dom": path.resolve(__dirname, "../node_modules/react-dom"),
         "@saltcorn/react-lib": path.resolve(

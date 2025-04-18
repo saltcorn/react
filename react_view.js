@@ -44,24 +44,43 @@ const buildViewBundle = async (buildMode, viewName) => {
   });
 };
 
-const handleUserCode = async (userCode, buildMode, viewName) => {
+const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
+
+const handleUserCode = async (userCode, buildMode, tableId, viewName) => {
   const userCodeDir = path.join(__dirname, "user-code");
+  const safeUserCode = userCode || defaultUserCode(tableId);
+  const safeViewName = buildSafeViewName(viewName);
   await fs.writeFile(
-    path.join(userCodeDir, `${viewName}.js`),
-    userCode,
+    path.join(userCodeDir, `${safeViewName}.js`),
+    safeUserCode,
     "utf8"
   );
-  if ((await buildViewBundle(buildMode, viewName)) !== 0) {
+  if ((await buildViewBundle(buildMode, safeViewName)) !== 0) {
     throw new Error("Build failed please check your server logs");
   }
 };
 
 const get_state_fields = () => [];
 
+const defaultUserCode = (tableId) => {
+  return `import React from "react";
+
+export default function App({ viewName, query${
+    tableId ? ", state, tableName, rows" : " "
+  } }) {
+  return <h3>default user code</h3>;
+};
+`;
+};
+
 // TODO default state, joinFields, aggregations, include_fml, exclusion_relation
 const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
+  const props = {
+    "view-name": buildSafeViewName(viewname),
+    query: encodeURIComponent(JSON.stringify(query)),
+  };
   if (table_id) {
     // with table
     const table = Table.findOne(table_id);
@@ -77,22 +96,14 @@ const run = async (table_id, viewname, {}, state, extra) => {
       forPublic: !req.user,
     });
     readState(state, fields, req);
-    return div({
-      class: "_sc_react-view",
-      "table-name": table.name,
-      "view-name": viewname,
-      state: encodeURIComponent(JSON.stringify(state)),
-      query: encodeURIComponent(JSON.stringify(query)),
-      rows: encodeURIComponent(JSON.stringify(rows)),
-    });
-  } else {
-    // tableless
-    return div({
-      class: "_sc_react-view",
-      "view-name": viewname,
-      query: encodeURIComponent(JSON.stringify(query)),
-    });
+    props["table-name"] = table.name;
+    props.state = encodeURIComponent(JSON.stringify(state));
+    props.rows = encodeURIComponent(JSON.stringify(rows));
   }
+  return div({
+    class: "_sc_react-view",
+    ...props,
+  });
 };
 
 const configuration_workflow = () =>
@@ -101,6 +112,7 @@ const configuration_workflow = () =>
       await handleUserCode(
         context.user_code,
         context.build_mode,
+        context.table_id,
         context.viewname
       );
       return context;
@@ -108,7 +120,9 @@ const configuration_workflow = () =>
     steps: [
       {
         name: "User code",
+        disablePreview: true,
         form: async (context) => {
+          const userCodeUndefined = context?.user_code === undefined;
           return new Form({
             fields: [
               {
@@ -141,6 +155,13 @@ const configuration_workflow = () =>
                 class: "btn btn-primary",
               },
             ],
+            ...(userCodeUndefined
+              ? {
+                  values: {
+                    user_code: defaultUserCode(context?.table_id),
+                  },
+                }
+              : {}),
           });
         },
       },
@@ -155,7 +176,7 @@ const build_user_code = async (
   { req }
 ) => {
   try {
-    await handleUserCode(user_code, build_mode, viewname);
+    await handleUserCode(user_code, build_mode, table_id, viewname);
     return { json: { notify_success: "Build successful" } };
   } catch (e) {
     return { json: { error: e.message || "An error occured" } };
