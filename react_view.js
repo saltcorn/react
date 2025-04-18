@@ -58,10 +58,25 @@ const handleUserCode = async (userCode, buildMode, viewName) => {
 
 const get_state_fields = () => [];
 
+const defaultUserCode = (context) => {
+  return `import React from "react";
+
+export default function App({ viewName, query${
+    context?.table_id ? ", state, tableName, rows" : " "
+  } }) {
+  return <h3>default user code</h3>;
+};
+`;
+};
+
 // TODO default state, joinFields, aggregations, include_fml, exclusion_relation
 const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
+  const props = {
+    "view-name": viewname,
+    query: encodeURIComponent(JSON.stringify(query)),
+  };
   if (table_id) {
     // with table
     const table = Table.findOne(table_id);
@@ -77,22 +92,14 @@ const run = async (table_id, viewname, {}, state, extra) => {
       forPublic: !req.user,
     });
     readState(state, fields, req);
-    return div({
-      class: "_sc_react-view",
-      "table-name": table.name,
-      "view-name": viewname,
-      state: encodeURIComponent(JSON.stringify(state)),
-      query: encodeURIComponent(JSON.stringify(query)),
-      rows: encodeURIComponent(JSON.stringify(rows)),
-    });
-  } else {
-    // tableless
-    return div({
-      class: "_sc_react-view",
-      "view-name": viewname,
-      query: encodeURIComponent(JSON.stringify(query)),
-    });
+    props["table-name"] = table.name;
+    props.state = encodeURIComponent(JSON.stringify(state));
+    props.rows = encodeURIComponent(JSON.stringify(rows));
   }
+  return div({
+    class: "_sc_react-view",
+    ...props,
+  });
 };
 
 const configuration_workflow = () =>
@@ -108,7 +115,9 @@ const configuration_workflow = () =>
     steps: [
       {
         name: "User code",
+        disablePreview: true,
         form: async (context) => {
+          const userCodeUndefined = context?.user_code === undefined;
           return new Form({
             fields: [
               {
@@ -141,6 +150,13 @@ const configuration_workflow = () =>
                 class: "btn btn-primary",
               },
             ],
+            ...(userCodeUndefined
+              ? {
+                  values: {
+                    user_code: defaultUserCode(context),
+                  },
+                }
+              : {}),
           });
         },
       },
