@@ -44,14 +44,17 @@ const buildViewBundle = async (buildMode, viewName) => {
   });
 };
 
+const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
+
 const handleUserCode = async (userCode, buildMode, viewName) => {
   const userCodeDir = path.join(__dirname, "user-code");
+  const safeViewName = buildSafeViewName(viewName);
   await fs.writeFile(
-    path.join(userCodeDir, `${viewName}.js`),
+    path.join(userCodeDir, `${safeViewName}.js`),
     userCode,
     "utf8"
   );
-  if ((await buildViewBundle(buildMode, viewName)) !== 0) {
+  if ((await buildViewBundle(buildMode, safeViewName)) !== 0) {
     throw new Error("Build failed please check your server logs");
   }
 };
@@ -74,7 +77,7 @@ const run = async (table_id, viewname, {}, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
   const props = {
-    "view-name": viewname,
+    "view-name": buildSafeViewName(viewname),
     query: encodeURIComponent(JSON.stringify(query)),
   };
   if (table_id) {
