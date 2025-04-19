@@ -58,4 +58,7 @@ const initMain = async () => {
 };
 
 if (isBuilder) document.addEventListener("preview-loaded", initMain);
-else document.addEventListener("DOMContentLoaded", initMain);
+else {
+  document.addEventListener("DOMContentLoaded", initMain);
+  document.addEventListener("pjax-loaded", initMain);
+}
