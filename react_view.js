@@ -68,7 +68,7 @@ const defaultUserCode = (tableId) => {
 export default function App({ viewName, query${
     tableId ? ", state, tableName, rows" : " "
   } }) {
-  return <h3>default user code</h3>;
+  return <h3>Please write your React code here</h3>;
 };
 `;
 };
