@@ -4,6 +4,10 @@ Plugin to integrate React components in your Saltcorn application.
 
 # Example to get started
 
+In this example you will create two bundle.js files: A global **main-bundle** with React and your own components, and a second **view-bundle** with shared access to the main file.
+
+### Main bundle
+
 1. Create a directory on your server filesystem or in the Saltcorn files manager and call it **getting-started-lib**.
 2. In getting-started-lib, create a package.json and an index.js file with the following content:
 
@@ -50,6 +54,9 @@ export const components = {
 4. Depending on step 1, set Code source to **local** or **Saltcorn folder** and select or enter the directory with the package.json and index.js file.
 5. Set the **Build mode** to **development** and click build or Finish.
    <br/>When everything went well, you now have a global main bundle with React and your getting-started-lib.
+
+### View bundle
+
 6. Create a view with the React Pattern, select any table and call the view **gettingStartedView** <br />(Please don't use whitespaces or other special character).
 7. In the view configuration enter this user code:
 
@@ -81,6 +88,19 @@ The plugin configuration has the following options:
   - **Local**: To get the code from a folder on your local server filesystem (**Path to code** input).
   - **Not set**: No code source is set. You define the code completely in the view configuration.
 - **Build mode**: Build your bundle.js for development or production. Use development for debugging and production for minified deployment code.
+
+# CSS files & images
+
+To integrate CSS files or images, put them into the project referenced by **Code source** and use the import Syntax. For example:
+
+```javascript
+import "../resources/persons_list.css";
+import bannerImage from "../resources/banner.png";
+
+export default function PersonsList({ ... }) {
+  ...
+}
+```
 
 # react-lib
 
