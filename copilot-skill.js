@@ -65,13 +65,14 @@ You must include the react import, and your generated code should export default
   async execute({ react_code, view_name, view_description, min_role }) {
     const name = view_name;
     const roles = await User.get_roles();
-    const min_role_id = roles.find((r) => r.role === min_role).id;
+    const min_role_id = min_role ? roles.find((r) => r.role === min_role).id : 100;
     const viewCfg = {
       name: view_name,
       viewtemplate: "React",
       min_role: min_role_id,
       configuration: { build_mode: "production", user_code: react_code },
     };
+    if (view_description) viewCfg.description = view_description;
     await View.create(viewCfg);
     return {
       postExec:
