@@ -50,10 +50,18 @@ const initMain = async () => {
     const rows = JSON.parse(
       decodeURIComponent(rootElement.getAttribute("rows"))
     );
-    const remote = await loadRemote(`${viewName}/${viewName}`);
-    const props = { tableName, viewName, state, query, rows };
-    const root = ReactDOMClient.createRoot(rootElement);
-    root.render(React.createElement(remote.default, props));
+    const user = JSON.parse(
+      decodeURIComponent(rootElement.getAttribute("user"))
+    );
+    try {
+      const remote = await loadRemote(`${viewName}/${viewName}`);
+      const props = { tableName, viewName, state, query, rows, user };
+      const root = ReactDOMClient.createRoot(rootElement);
+      root.render(React.createElement(remote.default, props));
+    } catch (e) {
+      console.error(`Error loading remote ${viewName}:`, e);
+      rootElement.innerHTML = `<div>Error loading ${viewName}</div>`;
+    }
   }
 };
 

@@ -1,64 +1,12 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
-const { div, script } = require("@saltcorn/markup/tags");
-const { getState } = require("@saltcorn/data/db/state");
+const { div } = require("@saltcorn/markup/tags");
 const {
   stateFieldsToWhere,
   readState,
 } = require("@saltcorn/data/plugin-helper");
-
-const { spawn } = require("child_process");
-const path = require("path");
-const fs = require("fs").promises;
-
-const buildViewBundle = async (buildMode, viewName) => {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      "npm",
-      [
-        "run",
-        buildMode === "development" ? "build_view_dev" : "build_view",
-        "--",
-        "--env",
-        `view_name=${viewName}`,
-      ],
-      {
-        cwd: __dirname,
-      }
-    );
-    child.stdout.on("data", (data) => {
-      getState().log(5, data.toString());
-    });
-    child.stderr?.on("data", (data) => {
-      getState().log(2, data.toString());
-    });
-    child.on("exit", function (code, signal) {
-      getState().log(5, `child process exited with code ${code}`);
-      resolve(code);
-    });
-    child.on("error", (msg) => {
-      getState().log(2, `child process failed: ${msg.code}`);
-      reject(msg.code);
-    });
-  });
-};
-
-const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
-
-const handleUserCode = async (userCode, buildMode, tableId, viewName) => {
-  const userCodeDir = path.join(__dirname, "user-code");
-  const safeUserCode = userCode || defaultUserCode(tableId);
-  const safeViewName = buildSafeViewName(viewName);
-  await fs.writeFile(
-    path.join(userCodeDir, `${safeViewName}.js`),
-    safeUserCode,
-    "utf8"
-  );
-  if ((await buildViewBundle(buildMode, safeViewName)) !== 0) {
-    throw new Error("Build failed please check your server logs");
-  }
-};
+const { handleUserCode, buildSafeViewName } = require("./common");
 
 const get_state_fields = () => [];
 
@@ -80,6 +28,7 @@ const run = async (table_id, viewname, {}, state, extra) => {
   const props = {
     "view-name": buildSafeViewName(viewname),
     query: encodeURIComponent(JSON.stringify(query)),
+    user: encodeURIComponent(JSON.stringify(req.user || {})),
   };
   if (table_id) {
     // with table
@@ -110,9 +59,8 @@ const configuration_workflow = () =>
   new Workflow({
     onDone: async (context) => {
       await handleUserCode(
-        context.user_code,
+        context.user_code || defaultUserCode(context.table_id),
         context.build_mode,
-        context.table_id,
         context.viewname
       );
       return context;
@@ -176,7 +124,11 @@ const build_user_code = async (
   { req }
 ) => {
   try {
-    await handleUserCode(user_code, build_mode, table_id, viewname);
+    await handleUserCode(
+      user_code || defaultUserCode(table_id),
+      build_mode,
+      viewname
+    );
     return { json: { notify_success: "Build successful" } };
   } catch (e) {
     return { json: { error: e.message || "An error occured" } };
