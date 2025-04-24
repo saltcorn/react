@@ -246,3 +246,7 @@ export default function App({ tableName, viewName, state, query }) {
   return <button onClick={() => deleteRow(tableName, 1)}>Delete row</button>;
 }
 ```
+
+# Copilot
+
+The Saltcorn copilot can generate react-views. Only views where all the code is stored within the view are possible, an action to change the main bundle does not exist yet. When the chat only gives you the code without a button to apply it, try to be more explicit (for example, it could be that the model still needs to know the min_role).
