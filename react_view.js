@@ -28,6 +28,7 @@ const run = async (table_id, viewname, {}, state, extra) => {
   const props = {
     "view-name": buildSafeViewName(viewname),
     query: encodeURIComponent(JSON.stringify(query)),
+    user: encodeURIComponent(JSON.stringify(req.user || {})),
   };
   if (table_id) {
     // with table
