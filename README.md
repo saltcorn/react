@@ -4,12 +4,12 @@ Plugin to integrate React components in your Saltcorn application.
 
 # Example to get started
 
-In this example you will create two bundle.js files: A global **main-bundle** with React and your own components, and a second **view-bundle** with shared access to the main file.
+In this example, you will create two bundle.js files: A global **main-bundle** containing React and your own components, and a second **view-bundle** with shared access to the main file.
 
 ### Main bundle
 
-1. Create a directory on your server filesystem or in the Saltcorn files manager and call it **getting-started-lib**.
-2. In getting-started-lib, create a package.json and an index.js file with the following content:
+1. Create a directory on your server file system or use the Saltcorn files manager, call it **getting-started-lib**.
+2. In getting-started-lib, create a package.json and an index.js file:
 
 ```json
 {
@@ -57,8 +57,8 @@ export const components = {
 
 ### View bundle
 
-6. Create a view with the React Pattern, select any table and call the view **gettingStartedView** <br />(Please don't use whitespaces or other special character).
-7. In the view configuration enter this user code:
+6. Create a view with the React Pattern, select any table and call the view **gettingStartedView** <br />(Please don't use white spaces or other special characters).
+7. In the view configuration, enter this user code:
 
 ```javascript
 import React from "react";
@@ -71,12 +71,46 @@ export default function App({ rows }) {
 
 and click Build or Finish.
 
-8. Open the view and you should see a simple listing of your rows.
+8. Open the view, and you should see a simple listing of your rows.
 
-The component also has access to **state**, **query** and **rows**:
+The component also has access to **state**, **query**, **rows** and the current **user**:
 
 ```javascript
-export default function App({ tableName, viewName, state, query, rows })
+export default function App({ tableName, viewName, state, query, rows, user })
+```
+
+For tableless react-views, only the following properties are available:
+
+```javascript
+export default function App({ viewName, query, user })
+```
+
+### Define everything in the view
+
+The above example has `PersonsList` in the main bundle, and the view only uses the component. This makes the component reusable, and you can edit it with your favorite IDE. But you don't have to split it, you could also write everything in the views user-code, and if you want, set **Code source** to **Not set** in the plugin configuration.
+
+The view code would look like this:
+
+```javascript
+import React from "react";
+
+export default function App({ rows }) {
+  return (
+    <div>
+      {rows && rows.length
+        ? rows.map((row) => {
+            return Object.entries(row).map(([key, value]) => (
+              <div key={key}>
+                <h3>
+                  {key}: {value}
+                </h3>
+              </div>
+            ));
+          })
+        : "No data available"}
+    </div>
+  );
+}
 ```
 
 # Plugin configuration
@@ -85,11 +119,11 @@ The plugin configuration has the following options:
 
 - **Code source**: Describes the source type where you get your React code from. The options are:
   - **Saltcorn folder**: The React code is in a folder in the Saltcorn directory. The folder is selected in the input below.
-  - **Local**: To get the code from a folder on your local server filesystem (**Path to code** input).
+  - **Local**: To get the code from a folder on your local server file system (**Path to code** input).
   - **Not set**: No code source is set. You define the code completely in the view configuration.
-- **Build mode**: Build your bundle.js for development or production. Use development for debugging and production for minified deployment code.
+- **Build mode**: Build your bundle.js for development or production. Use development for debugging and production for minified deployment code. The size of the main bundle changes significantly, please avoid **development** in production.
 
-# CSS files & images
+## CSS files & images
 
 To integrate CSS files or images, put them into the project referenced by **Code source** and use the import Syntax. For example:
 
@@ -101,6 +135,32 @@ export default function PersonsList({ ... }) {
   ...
 }
 ```
+
+## Act as a Filter
+
+A Saltcorn Filter modifies the query of the browser window, for example, with the value from an input. To mimic this, you can create a component with an input field and call `set_state_field` on change (or onblur if you don't want to change it on every keystroke):
+
+```javascript
+import React from "react";
+
+export default function App({ viewName, query }) {
+  return (
+    <div>
+      <label htmlFor="nameFilter">Filter by Name:</label>
+      <input
+        type="text"
+        id="nameFilter"
+        value={query.name || ""}
+        onChange={(e) => {
+          set_state_field("name", e.target.value, e);
+        }}
+      />
+    </div>
+  );
+}
+```
+
+You also could set the initial value, with a value from `query` (if there's a matching value).
 
 # react-lib
 
@@ -115,7 +175,7 @@ To fetch multiple rows, you can use this structure:
 import { useFetchRows } from "@saltcorn/react-lib/hooks";
 
 export default function App({ tableName, viewName, state, query }) {
-  const { rows, error } = useFetchRows(tableName, query);
+  const { rows, isLoading, error } = useFetchRows(tableName, query);
   return <div>
     {rows && rows.map((row) => (
         ...
@@ -132,7 +192,7 @@ For only one row:
 import { useFetchOneRow } from "@saltcorn/react-lib/hooks";
 
 export default function App({ tableName, viewName, state, query }) {
-  const { row, error } = useFetchOneRow(tableName, query);
+  const { row, isLoading, error } = useFetchOneRow(tableName, query);
   return <div>...</div>;
 }
 ```
