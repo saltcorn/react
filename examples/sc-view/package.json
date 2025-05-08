@@ -1,9 +1,9 @@
 {
-  "name": "basic_sc_react_components",
+  "name": "sc-view_component_usage",
   "author": "Christian Hugo",
   "license": "MIT",
   "version": "0.0.1",
-  "description": "Basic example to show the structure of a React component lib for Saltcorn",
+  "description": "Basic example to show how to use the sc-view component",
   "main": "index.js",
   "peerDependencies": {
     "react": "^19.0.0",

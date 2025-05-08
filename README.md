@@ -164,7 +164,7 @@ You also could set the initial value, with a value from `query` (if there's a ma
 
 # react-lib
 
-The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks and functions to interact with the Saltcorn system. To use it, add it as peerDependency in your components-lib.<br>
+The system gives you access to [**react-lib**](https://github.com/saltcorn/react-lib). This is a module with hooks, functions and components to interact with the Saltcorn system. To use it, add it as peerDependency in your components-lib.<br>
 The following examples are basic, more complete code can be found [here](https://github.com/saltcorn/react/tree/main/examples).
 
 ## Read rows
@@ -244,6 +244,25 @@ import { deleteRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
   return <button onClick={() => deleteRow(tableName, 1)}>Delete row</button>;
+}
+```
+
+## Components
+
+### ScView
+
+The ScView component allows using normal Saltcorn views in your React component. The following example shows how to use the **list_persons** list-view:
+
+```javascript
+import React from "react";
+import { ScView } from "@saltcorn/react-lib/components";
+
+export default function App({ viewName, query }) {
+  return (
+    <div>
+      <ScView name="list_persons" query={query} />
+    </div>
+  );
 }
 ```
 

@@ -8,7 +8,7 @@
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@saltcorn/react-lib": "0.0.1-beta.1"
+    "@saltcorn/react-lib": "0.0.1-beta.3"
   },
   "dependencies": {
     "react-router-dom": "5.3.4"

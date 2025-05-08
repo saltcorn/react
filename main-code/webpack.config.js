@@ -83,6 +83,10 @@ module.exports = async (env) => {
           __dirname,
           "../node_modules/@saltcorn/react-lib/dist/hooks"
         ),
+        "@saltcorn/react-lib/components": path.resolve(
+          __dirname,
+          "../node_modules/@saltcorn/react-lib/dist/components"
+        ),
       },
       extensions: [".js", ".jsx"],
     },
