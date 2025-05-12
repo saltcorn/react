@@ -322,6 +322,68 @@ For this, you need a trigger named **select_all_users** with the **Api call** co
 
 `SELECT id, name FROM users;`
 
+### Actions with row
+
+For actions that need a row, call `runAction` like this:
+
+```javascript
+await runAction(actionName, row);
+```
+
+For example, to count all users that have a specific email ending, you could write this **run_sql_query** trigger:
+
+```sql
+SELECT COUNT(*) AS num_endings
+FROM users
+WHERE email LIKE '%' || $1;
+```
+
+Name it **count_email_endings** and set 'Row parameters' to **email_ending**.
+
+With this, you could write a view that takes the ending from an input field and calls the action:
+
+```javascript
+import React, { useState } from "react";
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({ viewName, query }) {
+  const [userCount, setUserCount] = useState(null);
+  const [emailEnding, setEmailEnding] = useState("");
+
+  const countUsers = async () => {
+    try {
+      const response = await runAction("count_email_endings", {
+        email_ending: emailEnding,
+      });
+      setUserCount(response[0]?.num_endings);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="mb-3">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Enter email ending (e.g., gmail.com)"
+          value={emailEnding}
+          onChange={(e) => setEmailEnding(e.target.value)}
+        />
+      </div>
+      <button className="btn btn-primary mb-3" onClick={countUsers}>
+        Fetch Users
+      </button>
+
+      {userCount !== null && (
+        <div className="alert alert-info">Total Users: {userCount}</div>
+      )}
+    </div>
+  );
+}
+```
+
 ## Components
 
 ### ScView
