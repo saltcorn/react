@@ -247,6 +247,81 @@ export default function App({ tableName, viewName, state, query }) {
 }
 ```
 
+## Run Saltcorn Actions
+
+Use the `runAction` function to trigger Saltcorn actions:
+
+```javascript
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({}) {
+  return (
+    <button
+      onClick={() => runAction("my_action">)}
+    >
+      Run action
+    </button>
+  );
+}
+```
+
+You'll need a trigger named **my_action** with the When condition **Api call**. `runAction` is asynchronous, and data returned from the run will be set it in the response. The following example uses **run_sql_query** from the [sql](https://github.com/saltcorn/sql) plugin to query all existing users:
+
+```javascript
+import React, { useState } from "react";
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({ viewName, query }) {
+  const [users, setUsers] = useState([]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await runAction("select_all_users");
+      setUsers(response);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <button className="btn btn-primary mb-3" onClick={fetchUsers}>
+        Fetch Users
+      </button>
+
+      <table className="table table-bordered table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.length > 0 ? (
+            users.map((user, index) => (
+              <tr key={index}>
+                <td>{user.id}</td>
+                <td>{user.email}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="3" className="text-center">
+                No users found.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+For this, you need a trigger named **select_all_users** with the **Api call** condition, and the action should be **run_sql_query**. In **select_all_users** you can use
+
+`SELECT id, name FROM users;`
+
 ## Components
 
 ### ScView
