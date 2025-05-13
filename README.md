@@ -189,6 +189,7 @@ export default function App({ tableName, viewName, state, query }) {
 For only one row:
 
 ```javascript
+import React from "react";
 import { useFetchOneRow } from "@saltcorn/react-lib/hooks";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -210,6 +211,7 @@ To insert, update or delete rows, take a look at this basic examples:
 ### Insert row
 
 ```javascript
+import React from "react";
 import { insertRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -224,6 +226,7 @@ export default function App({ tableName, viewName, state, query }) {
 ### Update row
 
 ```javascript
+import React from "react";
 import { updateRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -240,6 +243,7 @@ export default function App({ tableName, viewName, state, query }) {
 ### Delete row
 
 ```javascript
+import React from "react";
 import { deleteRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -252,12 +256,13 @@ export default function App({ tableName, viewName, state, query }) {
 Use the `runAction` function to trigger Saltcorn actions:
 
 ```javascript
+import React from "react";
 import { runAction } from "@saltcorn/react-lib/api";
 
 export default function App({}) {
   return (
     <button
-      onClick={() => runAction("my_action">)}
+      onClick={() => runAction("my_action")}
     >
       Run action
     </button>
