@@ -189,6 +189,7 @@ export default function App({ tableName, viewName, state, query }) {
 For only one row:
 
 ```javascript
+import React from "react";
 import { useFetchOneRow } from "@saltcorn/react-lib/hooks";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -210,6 +211,7 @@ To insert, update or delete rows, take a look at this basic examples:
 ### Insert row
 
 ```javascript
+import React from "react";
 import { insertRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -224,6 +226,7 @@ export default function App({ tableName, viewName, state, query }) {
 ### Update row
 
 ```javascript
+import React from "react";
 import { updateRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
@@ -240,10 +243,149 @@ export default function App({ tableName, viewName, state, query }) {
 ### Delete row
 
 ```javascript
+import React from "react";
 import { deleteRow } from "@saltcorn/react-lib/api";
 
 export default function App({ tableName, viewName, state, query }) {
   return <button onClick={() => deleteRow(tableName, 1)}>Delete row</button>;
+}
+```
+
+## Run Saltcorn Actions
+
+Use the `runAction` function to trigger Saltcorn actions:
+
+```javascript
+import React from "react";
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({}) {
+  return (
+    <button
+      onClick={() => runAction("my_action")}
+    >
+      Run action
+    </button>
+  );
+}
+```
+
+You'll need a trigger named **my_action** with the When condition **Api call**. `runAction` is asynchronous, and data returned from the run will be set it in the response. The following example uses **run_sql_query** from the [sql](https://github.com/saltcorn/sql) plugin to query all existing users:
+
+```javascript
+import React, { useState } from "react";
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({ viewName, query }) {
+  const [users, setUsers] = useState([]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await runAction("select_all_users");
+      setUsers(response);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <button className="btn btn-primary mb-3" onClick={fetchUsers}>
+        Fetch Users
+      </button>
+
+      <table className="table table-bordered table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.length > 0 ? (
+            users.map((user, index) => (
+              <tr key={index}>
+                <td>{user.id}</td>
+                <td>{user.email}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="3" className="text-center">
+                No users found.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+```
+
+For this, you need a trigger named **select_all_users** with the **Api call** condition, and the action should be **run_sql_query**. In **select_all_users** you can use
+
+`SELECT id, name FROM users;`
+
+### Actions with row
+
+For actions that need a row, call `runAction` like this:
+
+```javascript
+await runAction(actionName, row);
+```
+
+For example, to count all users that have a specific email ending, you could write this **run_sql_query** trigger:
+
+```sql
+SELECT COUNT(*) AS num_endings
+FROM users
+WHERE email LIKE '%' || $1;
+```
+
+Name it **count_email_endings** and set 'Row parameters' to **email_ending**.
+
+With this, you could write a view that takes the ending from an input field and calls the action:
+
+```javascript
+import React, { useState } from "react";
+import { runAction } from "@saltcorn/react-lib/api";
+
+export default function App({ viewName, query }) {
+  const [userCount, setUserCount] = useState(null);
+  const [emailEnding, setEmailEnding] = useState("");
+
+  const countUsers = async () => {
+    try {
+      const response = await runAction("count_email_endings", {
+        email_ending: emailEnding,
+      });
+      setUserCount(response[0]?.num_endings);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
+  return (
+    <div className="container mt-5">
+      <div className="mb-3">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Enter email ending (e.g., gmail.com)"
+          value={emailEnding}
+          onChange={(e) => setEmailEnding(e.target.value)}
+        />
+      </div>
+      <button className="btn btn-primary mb-3" onClick={countUsers}>
+        Fetch Users
+      </button>
+
+      {userCount !== null && (
+        <div className="alert alert-info">Total Users: {userCount}</div>
+      )}
+    </div>
+  );
 }
 ```
 
