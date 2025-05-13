@@ -1,6 +1,6 @@
 {
   "name": "@saltcorn/react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "integrate React components in your Saltcorn application",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,7 @@
   "dependencies": {
     "@saltcorn/markup": "^0.2.0",
     "@saltcorn/data": "^0.2.0",
-    "@saltcorn/react-lib": "0.0.1-beta.4",
+    "@saltcorn/react-lib": "0.0.1-beta.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "webpack": "5.97.1",
