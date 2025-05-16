@@ -5,6 +5,8 @@ import { init, loadRemote } from "@module-federation/runtime";
 
 import * as userLib from "@user-lib";
 
+const isNode = typeof window === "undefined";
+
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
 window.ReactDOM = ReactDOM;
@@ -33,7 +35,10 @@ const initMain = async () => {
     if (remotesCfg.remotes.some((r) => r.name === viewName)) continue;
     remotesCfg.remotes.push({
       name: viewName,
-      entry: `./plugins/public/react/${viewName}_remote.js`,
+      entry: isNode
+        ? `/plugins/public/react/${viewName}_remote.js`
+        : // TODO get the version from the plugin, for now hardcoded in any release
+          `http://localhost/sc_plugins/public/react@0.1.2/${viewName}_remote.js`,
     });
   }
 
