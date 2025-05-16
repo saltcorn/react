@@ -273,4 +273,5 @@ module.exports = {
       getState().log(2, `Error building main bundle: ${e.message}`);
     }
   },
+  ready_for_mobile: true,
 };
