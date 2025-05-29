@@ -6,7 +6,7 @@ import { init, loadRemote } from "@module-federation/runtime";
 import * as userLib from "@user-lib";
 
 const isWeb = typeof window.saltcorn?.mobileApp === "undefined";
-const tenant = window.tenant_name;
+const tenant = window.tenant_name || "public";
 
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
