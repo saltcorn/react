@@ -5,7 +5,8 @@ import { init, loadRemote } from "@module-federation/runtime";
 
 import * as userLib from "@user-lib";
 
-const isNode = typeof window === "undefined";
+const isWeb = typeof window.saltcorn?.mobileApp === "undefined";
+const tenant = window.tenant_name;
 
 window.React = React;
 window.ReactDOMClient = ReactDOMClient;
@@ -35,10 +36,10 @@ const initMain = async () => {
     if (remotesCfg.remotes.some((r) => r.name === viewName)) continue;
     remotesCfg.remotes.push({
       name: viewName,
-      entry: isNode
-        ? `/plugins/public/react/${viewName}_remote.js`
+      entry: isWeb
+        ? `/plugins/public/react/${tenant}/${viewName}_remote.js`
         : // TODO get the version from the plugin, for now hardcoded in any release
-          `http://localhost/sc_plugins/public/react@0.1.2/${viewName}_remote.js`,
+          `http://localhost/sc_plugins/public/react@0.1.2/${tenant}/${viewName}_remote.js`,
     });
   }
 
