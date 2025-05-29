@@ -7,12 +7,14 @@ const {
   stateFieldsToWhere,
   readState,
 } = require("@saltcorn/data/plugin-helper");
+const db = require("@saltcorn/data/db");
 
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs").promises;
 
 const buildViewBundle = async (buildMode, viewName) => {
+  const tenant = db.getTenantSchema() || "public";
   return new Promise((resolve, reject) => {
     const child = spawn(
       "npm",
@@ -22,6 +24,8 @@ const buildViewBundle = async (buildMode, viewName) => {
         "--",
         "--env",
         `view_name=${viewName}`,
+        "--env",
+        `tenant_name=${tenant}`,
       ],
       {
         cwd: __dirname,
@@ -47,7 +51,13 @@ const buildViewBundle = async (buildMode, viewName) => {
 const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
 
 const handleUserCode = async (userCode, buildMode, viewName) => {
-  const userCodeDir = path.join(__dirname, "user-code");
+  const tenant = db.getTenantSchema() || "public";
+  const userCodeDir = path.join(__dirname, "user-code", tenant);
+  const codeDirExists = await fs
+    .access(userCodeDir)
+    .then(() => true)
+    .catch(() => false);
+  if (!codeDirExists) await fs.mkdir(userCodeDir, { recursive: true });
   const safeViewName = buildSafeViewName(viewName);
   await fs.writeFile(
     path.join(userCodeDir, `${safeViewName}.js`),

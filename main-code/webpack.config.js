@@ -8,10 +8,11 @@ module.exports = async (env) => {
     userLibMainFile !== "null"
       ? path.join(env.user_lib_path, userLibMainFile)
       : null;
+  const tenantName = env.tenant_name || "public";
   return {
     entry: path.join(__dirname, "./index.js"),
     output: {
-      path: path.join(__dirname, "..", "public"),
+      path: path.join(__dirname, "..", "public", tenantName),
     },
     module: {
       rules: [

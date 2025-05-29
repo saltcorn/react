@@ -1,6 +1,7 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
+const db = require("@saltcorn/data/db");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
@@ -8,6 +9,7 @@ const path = require("path");
 
 const buildMainBundle = async (buildMode, libPath, libMain) => {
   getState().log(6, `spawn ${buildMode} build of main bundle`);
+  const tenant = db.getTenantSchema() || "public";
   return new Promise((resolve, reject) => {
     const child = spawn(
       "npm",
@@ -19,6 +21,8 @@ const buildMainBundle = async (buildMode, libPath, libMain) => {
         `user_lib_path=${libPath}`,
         "--env",
         `user_lib_main=${libMain}`,
+        "--env",
+        `tenant_name=${tenant}`,
       ],
       {
         cwd: __dirname,
@@ -69,6 +73,18 @@ const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
       );
     }
   };
+  // ensure a tenant directory exists
+  const tenant = db.getTenantSchema() || "public";
+  const tenantDir = path.join(__dirname, "public", tenant);
+  const tenantDirExists = await fs
+    .access(tenantDir)
+    .then(() => true)
+    .catch(() => false);
+  if (!tenantDirExists) {
+    getState().log(5, `Creating tenant directory ${tenantDir}`);
+    await fs.mkdir(tenantDir, { recursive: true });
+  }
+
   if (
     (await buildMainBundle(
       buildMode,
@@ -241,15 +257,27 @@ module.exports = {
   configuration_workflow,
   routes,
   viewtemplates: (cfg) => [require("./react_view")],
-  headers: () => [
-    {
-      script: "/plugins/public/react/main_bundle.js",
-    },
-  ],
+  headers: () => {
+    const tenant = db.getTenantSchema() || "public";
+    return [
+      {
+        headerTag: `<script>var tenant_name = "${tenant}";</script>`,
+      },
+      {
+        script: `/plugins/public/react/${tenant}/main_bundle.js`,
+      },
+    ];
+  },
   copilot_skills: (cfg) => [require("./copilot-skill")(cfg)],
   onLoad: async (configuration) => {
     try {
-      const mainBundlePath = path.join(__dirname, "public", "main_bundle.js");
+      const tenant = db.getTenantSchema() || "public";
+      const mainBundlePath = path.join(
+        __dirname,
+        "public",
+        tenant,
+        `main_bundle.js`
+      );
       const mainBundleExists = await fs
         .access(mainBundlePath)
         .then(() => true)
