@@ -39,7 +39,7 @@ const initMain = async () => {
       entry: isWeb
         ? `/plugins/public/react/${tenant}/${viewName}_remote.js`
         : // TODO get the version from the plugin, for now hardcoded in any release
-          `http://localhost/sc_plugins/public/react@0.1.2/${tenant}/${viewName}_remote.js`,
+          `http://localhost/sc_plugins/public/react@0.1.3/${tenant}/${viewName}_remote.js`,
     });
   }
 
