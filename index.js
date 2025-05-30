@@ -130,6 +130,13 @@ const configuration_workflow = () =>
               {
                 headerTag: `<script>
   function runBuild(btn) {
+    if (window.savingViewConfig) {
+      notifyAlert({
+        type: "danger",
+        text: "Please wait until the config is saved",
+      });
+      return false;
+    }
     $(btn).data("old-text", "build");
     $.ajax({
       type: "POST",
@@ -158,6 +165,7 @@ const configuration_workflow = () =>
         }, 50);
       },
     });
+    return true;
   }
 </script>`,
               },
@@ -213,7 +221,7 @@ const configuration_workflow = () =>
               {
                 id: "build_button_id",
                 label: "build",
-                onclick: "runBuild(this);press_store_button(this);",
+                onclick: "if (runBuild(this)) press_store_button(this);",
                 class: "btn btn-primary",
               },
             ],
