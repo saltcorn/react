@@ -1,9 +1,9 @@
 {
-  "name": "sc-view_component_usage",
+  "name": "basic_sc_react_components",
   "author": "Christian Hugo",
   "license": "MIT",
   "version": "0.0.1",
-  "description": "Basic example to show how to use the sc-view component",
+  "description": "Basic example to show crud operations with sc react views",
   "main": "index.js",
   "peerDependencies": {
     "react": "^19.0.0",
