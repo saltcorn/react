@@ -61,7 +61,7 @@ module.exports = async (env) => {
           },
           "@saltcorn/react-lib": {
             singleton: true,
-            requiredVersion: "0.0.1-beta.1",
+            requiredVersion: "0.0.1-beta.6",
             eager: true,
           },
         },

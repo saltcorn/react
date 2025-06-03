@@ -1,5 +1,3 @@
-// ./create_person_modal.js
-
 import React, { useState } from "react";
 
 export default function CreatePersonModal({ isOpen, onClose, onCreate }) {

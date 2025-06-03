@@ -75,4 +75,7 @@ if (isBuilder) document.addEventListener("preview-loaded", initMain);
 else {
   document.addEventListener("DOMContentLoaded", initMain);
   document.addEventListener("pjax-loaded", initMain);
+  if (!isWeb) {
+    document.addEventListener("mobile-loaded", initMain);
+  }
 }
