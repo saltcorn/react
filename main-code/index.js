@@ -5,7 +5,7 @@ import { init, loadRemote } from "@module-federation/runtime";
 
 import * as userLib from "@user-lib";
 
-const isWeb = typeof window.saltcorn?.mobileApp === "undefined";
+const isWeb = typeof parent.saltcorn?.mobileApp === "undefined";
 const tenant = window.tenant_name || "public";
 
 window.React = React;
@@ -75,4 +75,7 @@ if (isBuilder) document.addEventListener("preview-loaded", initMain);
 else {
   document.addEventListener("DOMContentLoaded", initMain);
   document.addEventListener("pjax-loaded", initMain);
+  if (!isWeb) {
+    document.addEventListener("mobile-loaded", initMain);
+  }
 }
