@@ -204,6 +204,34 @@ If you don't need hooks:
 import { fetchRows, fetchOneRow } from "@saltcorn/react-lib/api";
 ```
 
+### Count rows
+```javascript
+import React from "react";
+import { useCountRows } from "@saltcorn/react-lib/hooks";
+
+export default function App({ viewName, query }) {
+  const { count, isLoading, error } = useCountRows("users");
+
+  return (
+    <div>
+      <h3>
+        Row count for users:{" "}
+        {isLoading
+          ? "Loading..."
+          : error
+          ? "Error fetching data"
+          : count}
+      </h3>
+    </div>
+  );
+}
+```
+Or without hooks:
+
+```javascript
+import { countRows } from "@saltcorn/react-lib/api";
+```
+
 ## Modify rows
 
 To insert, update or delete rows, take a look at this basic examples:
