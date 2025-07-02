@@ -210,14 +210,14 @@ import React from "react";
 import { useCountRows } from "@saltcorn/react-lib/hooks";
 
 export default function App({ viewName, query }) {
-  const { count, isLoading, error } = useCountRows("users");
+  const { count, isCounting, error } = useCountRows("users");
 
   return (
     <div>
       <h3>
         Row count for users:{" "}
-        {isLoading
-          ? "Loading..."
+        {isCounting
+          ? "Count..."
           : error
           ? "Error fetching data"
           : count}
