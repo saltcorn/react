@@ -417,6 +417,56 @@ export default function App({ viewName, query }) {
 }
 ```
 
+## Real-time updates
+To get real-time updates from the server you can use the following example:
+```javascript
+
+import React, { useEffect } from "react";
+
+
+const collabCfg = {
+  events: {
+    // view: my_react_view
+    // event_type: new_data
+    // event_name: new_data_my_react_view
+    new_data_my_react_view: (data) => {
+      alert(data.text);
+    }
+  }
+};
+
+export default function App({ viewName, query }) {
+  useEffect(() => {    
+    const script = document.createElement("script");
+    script.src = `/static_assets/${_sc_version_tag}/socket.io.min.js`;
+    script.async = true;
+    script.onload = () => {
+      init_collab_room("my_react_view", collabCfg );
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      // Clean up on unmount
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  return <h3>Please write your React code here</h3>;
+}
+```
+When the server sends an **new_data_my_react_view** event, the callback in collabCfg is called with the new data. The event identifier consists of the event type (new_data) and the view name (my_react_view).
+
+To run an update from a triggier of type run_js_code you can use the following code:
+
+```javascript
+const view = View.findOne({name: "my_react_view"});
+view.emitRealTimeEvent(
+  "new_data", 
+  { text: "this is some text from the trigger " + new Date().toTimeString() }
+);
+ ```
+
 ## Components
 
 ### ScView
