@@ -43,8 +43,8 @@ const initMain = async () => {
           : `/plugins/public/react/${tenant}/${viewName}_remote.js`
         : // TODO get the version from the plugin, for now hardcoded in any release
           timestamp
-          ? `http://localhost/sc_plugins/public/react@0.1.5/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
-          : `http://localhost/sc_plugins/public/react@0.1.5/${tenant}/${viewName}_remote.js`,
+          ? `http://localhost/sc_plugins/public/react@0.1.6/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
+          : `http://localhost/sc_plugins/public/react@0.1.6/${tenant}/${viewName}_remote.js`,
     });
   }
 
