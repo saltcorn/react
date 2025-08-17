@@ -13,7 +13,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs").promises;
 
-const buildViewBundle = async (buildMode, viewName) => {
+const buildViewBundle = async (buildMode, viewName, timestamp) => {
   const tenant = db.getTenantSchema() || "public";
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -26,10 +26,14 @@ const buildViewBundle = async (buildMode, viewName) => {
         `view_name=${viewName}`,
         "--env",
         `tenant_name=${tenant}`,
+        "--env",
+        `timestamp=${timestamp}`,
+        "--env",
+        `bundle_name=${viewName}.bundle.js`,
       ],
       {
         cwd: __dirname,
-      }
+      },
     );
     child.stdout.on("data", (data) => {
       getState().log(5, data.toString());
@@ -50,7 +54,13 @@ const buildViewBundle = async (buildMode, viewName) => {
 
 const buildSafeViewName = (viewName) => viewName.replace(/[^a-zA-Z0-9]/g, "_");
 
-const handleUserCode = async (userCode, buildMode, viewName) => {
+const handleUserCode = async (
+  userCode,
+  buildMode,
+  viewName,
+  oldTimestamp,
+  newTimestamp,
+) => {
   const tenant = db.getTenantSchema() || "public";
   const userCodeDir = path.join(__dirname, "user-code", tenant);
   const codeDirExists = await fs
@@ -62,10 +72,21 @@ const handleUserCode = async (userCode, buildMode, viewName) => {
   await fs.writeFile(
     path.join(userCodeDir, `${safeViewName}.js`),
     userCode,
-    "utf8"
+    "utf8",
   );
-  if ((await buildViewBundle(buildMode, safeViewName)) !== 0) {
+  if ((await buildViewBundle(buildMode, safeViewName, newTimestamp)) !== 0) {
     throw new Error("Build failed please check your server logs");
+  }
+  try {
+    await fs.rm(
+      path.join(__dirname, "public", tenant, `${safeViewName}_${oldTimestamp}`),
+      { recursive: true, force: true },
+    );
+  } catch (err) {
+    getState().log(
+      2,
+      "Error removing old directory: " + err.message || "Unknown error",
+    );
   }
 };
 

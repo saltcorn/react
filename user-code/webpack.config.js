@@ -5,11 +5,18 @@ module.exports = (env) => {
   const viewName = env.view_name;
   const tenantName = env.tenant_name || "public";
   const entryFile = `${viewName}.js`;
+  const timestamp = env.timestamp;
   return {
     entry: path.join(__dirname, tenantName, entryFile),
     output: {
       filename: env.bundle_name,
-      path: path.join(__dirname, "..", "public", tenantName),
+      path: path.join(
+        __dirname,
+        "..",
+        "public",
+        tenantName,
+        `${viewName}_${timestamp}`,
+      ),
       publicPath: "auto",
     },
     plugins: [

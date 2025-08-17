@@ -33,13 +33,18 @@ const initMain = async () => {
   const rootElements = document.getElementsByClassName("_sc_react-view");
   for (const rootElement of rootElements) {
     const viewName = rootElement.getAttribute("view-name");
+    const timestamp = rootElement.getAttribute("timestamp");
     if (remotesCfg.remotes.some((r) => r.name === viewName)) continue;
     remotesCfg.remotes.push({
       name: viewName,
       entry: isWeb
-        ? `/plugins/public/react/${tenant}/${viewName}_remote.js`
+        ? timestamp
+          ? `/plugins/public/react/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
+          : `/plugins/public/react/${tenant}/${viewName}_remote.js`
         : // TODO get the version from the plugin, for now hardcoded in any release
-          `http://localhost/sc_plugins/public/react@0.1.5/${tenant}/${viewName}_remote.js`,
+          timestamp
+          ? `http://localhost/sc_plugins/public/react@0.1.5/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
+          : `http://localhost/sc_plugins/public/react@0.1.5/${tenant}/${viewName}_remote.js`,
     });
   }
 
@@ -47,17 +52,17 @@ const initMain = async () => {
   for (const rootElement of rootElements) {
     const viewName = rootElement.getAttribute("view-name");
     const state = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("state"))
+      decodeURIComponent(rootElement.getAttribute("state")),
     );
     const query = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("query"))
+      decodeURIComponent(rootElement.getAttribute("query")),
     );
     const tableName = rootElement.getAttribute("table-name");
     const rows = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("rows"))
+      decodeURIComponent(rootElement.getAttribute("rows")),
     );
     const user = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("user"))
+      decodeURIComponent(rootElement.getAttribute("user")),
     );
     try {
       const remote = await loadRemote(`${viewName}/${viewName}`);
