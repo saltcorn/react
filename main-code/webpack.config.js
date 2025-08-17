@@ -9,6 +9,7 @@ module.exports = async (env) => {
       ? path.join(env.user_lib_path, userLibMainFile)
       : null;
   const tenantName = env.tenant_name || "public";
+  const timestamp = env.timestamp;
   return {
     entry: path.join(__dirname, "./index.js"),
     output: {
@@ -39,7 +40,7 @@ module.exports = async (env) => {
     plugins: [
       new ModuleFederationPlugin({
         name: "main",
-        filename: "main_bundle.js",
+        filename: `main_bundle_${timestamp}.js`,
         exposes: indexPath
           ? {
               "./index": indexPath,
@@ -78,15 +79,15 @@ module.exports = async (env) => {
         "react-dom": path.resolve(__dirname, "../node_modules/react-dom"),
         "@saltcorn/react-lib": path.resolve(
           __dirname,
-          "../node_modules/@saltcorn/react-lib/dist/"
+          "../node_modules/@saltcorn/react-lib/dist/",
         ),
         "@saltcorn/react-lib/hooks": path.resolve(
           __dirname,
-          "../node_modules/@saltcorn/react-lib/dist/hooks"
+          "../node_modules/@saltcorn/react-lib/dist/hooks",
         ),
         "@saltcorn/react-lib/components": path.resolve(
           __dirname,
-          "../node_modules/@saltcorn/react-lib/dist/components"
+          "../node_modules/@saltcorn/react-lib/dist/components",
         ),
       },
       extensions: [".js", ".jsx"],

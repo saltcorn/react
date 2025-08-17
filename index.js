@@ -1,13 +1,14 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
+const Plugin = require("@saltcorn/data/models/plugin");
 const db = require("@saltcorn/data/db");
 const { getState } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
 const path = require("path");
 
-const buildMainBundle = async (buildMode, libPath, libMain) => {
+const buildMainBundle = async (buildMode, libPath, libMain, timestamp) => {
   getState().log(6, `spawn ${buildMode} build of main bundle`);
   const tenant = db.getTenantSchema() || "public";
   return new Promise((resolve, reject) => {
@@ -23,10 +24,12 @@ const buildMainBundle = async (buildMode, libPath, libMain) => {
         `user_lib_main=${libMain}`,
         "--env",
         `tenant_name=${tenant}`,
+        "--env",
+        `timestamp=${timestamp}`,
       ],
       {
         cwd: __dirname,
-      }
+      },
     );
     child.stdout.on("data", (data) => {
       getState().log(5, data.toString());
@@ -45,7 +48,12 @@ const buildMainBundle = async (buildMode, libPath, libMain) => {
   });
 };
 
-const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
+const prepareDirectory = async ({
+  codeSource,
+  codeLocation,
+  buildMode,
+  timestamp,
+}) => {
   const userLibPath = async (source, location) => {
     switch (source) {
       case "local":
@@ -64,12 +72,12 @@ const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
   const libPath = await userLibPath(codeSource, codeLocation);
   const userLibMain = async () => {
     const packageJson = JSON.parse(
-      await fs.readFile(path.join(libPath, "package.json"), "utf8")
+      await fs.readFile(path.join(libPath, "package.json"), "utf8"),
     );
     if (packageJson.main) return packageJson.main;
     else {
       throw new Error(
-        "No main field in package.json, please specify the main file"
+        "No main field in package.json, please specify the main file",
       );
     }
   };
@@ -89,10 +97,18 @@ const prepareDirectory = async ({ codeSource, codeLocation, buildMode }) => {
     (await buildMainBundle(
       buildMode,
       libPath,
-      libPath ? await userLibMain() : null
+      libPath ? await userLibMain() : null,
+      timestamp,
     )) !== 0
   ) {
     throw new Error("Webpack failed, please check your Server logs");
+  }
+  // remove all main_bundle files except the one with the current timestamp
+  const files = await fs.readdir(tenantDir);
+  for (const file of files) {
+    if (file.startsWith("main_bundle_") && !file.endsWith(`${timestamp}.js`)) {
+      await fs.unlink(path.join(tenantDir, file));
+    }
   }
 };
 
@@ -100,16 +116,19 @@ const configuration_workflow = () =>
   new Workflow({
     onDone: async (context) => {
       const { app_code_source, app_code_path, sc_folder, build_mode } = context;
+      const timestamp = new Date().valueOf();
       await prepareDirectory({
         codeSource: app_code_source,
         codeLocation:
           app_code_source === "local"
             ? app_code_path
             : app_code_source === "Saltcorn folder"
-            ? sc_folder
-            : null,
+              ? sc_folder
+              : null,
         buildMode: build_mode,
+        timestamp,
       });
+      context.timestamp = timestamp;
       return context;
     },
     steps: [
@@ -241,17 +260,31 @@ const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
         getState().log(
           6,
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
-            `sc_folder: ${sc_folder}, build_mode: ${build_mode}, `
+            `sc_folder: ${sc_folder}, build_mode: ${build_mode}, `,
         );
+        const timestamp = new Date().valueOf();
         await prepareDirectory({
           codeSource: app_code_source,
           codeLocation:
             app_code_source === "local"
               ? app_code_path
               : app_code_source === "Saltcorn folder"
-              ? sc_folder
-              : null,
+                ? sc_folder
+                : null,
           buildMode: build_mode,
+          timestamp,
+        });
+        let plugin = await Plugin.findOne({ name: "react" });
+        if (!plugin) {
+          plugin = await Plugin.findOne({
+            name: "@saltcorn/react",
+          });
+        }
+        plugin.configuration.timestamp = timestamp;
+        await plugin.upsert();
+        getState().processSend({
+          refresh_plugin_cfg: plugin.name,
+          tenant: db.getTenantSchema(),
         });
         res.json({ notify_success: "Build successful" });
       },
@@ -265,26 +298,27 @@ module.exports = {
   configuration_workflow,
   routes,
   viewtemplates: (cfg) => [require("./react_view")],
-  headers: () => {
+  headers: (cfg) => {
     const tenant = db.getTenantSchema() || "public";
     return [
       {
         headerTag: `<script>var tenant_name = "${tenant}";</script>`,
       },
       {
-        script: `/plugins/public/react/${tenant}/main_bundle.js`,
+        script: `/plugins/public/react/${tenant}/main_bundle_${cfg.timestamp}.js`,
       },
     ];
   },
   copilot_skills: (cfg) => [require("./copilot-skill")(cfg)],
   onLoad: async (configuration) => {
+    if (!require("cluster").isMaster) return;
     try {
       const tenant = db.getTenantSchema() || "public";
       const mainBundlePath = path.join(
         __dirname,
         "public",
         tenant,
-        `main_bundle.js`
+        `main_bundle_${configuration.timestamp}.js`,
       );
       const mainBundleExists = await fs
         .access(mainBundlePath)
@@ -294,15 +328,29 @@ module.exports = {
         getState().log(5, "Main bundle does not exist, building it now");
         const { app_code_source, app_code_path, sc_folder, build_mode } =
           configuration;
+        const timestamp = new Date().valueOf();
         await prepareDirectory({
           codeSource: app_code_source,
           codeLocation:
             app_code_source === "local"
               ? app_code_path
               : app_code_source === "Saltcorn folder"
-              ? sc_folder
-              : null,
+                ? sc_folder
+                : null,
           buildMode: build_mode,
+          timestamp,
+        });
+        let plugin = await Plugin.findOne({ name: "react" });
+        if (!plugin) {
+          plugin = await Plugin.findOne({
+            name: "@saltcorn/react",
+          });
+        }
+        plugin.configuration.timestamp = timestamp;
+        await plugin.upsert();
+        getState().processSend({
+          refresh_plugin_cfg: plugin.name,
+          tenant: db.getTenantSchema(),
         });
       }
     } catch (e) {
