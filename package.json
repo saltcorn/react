@@ -8,7 +8,8 @@
     "build_view_dev": "webpack --mode development --config user-code/webpack.config.js",
     "build_main": "webpack --mode production --config main-code/webpack.config.js",
     "build_main_dev": "webpack --mode development --config main-code/webpack.config.js",
-    "eslint": "eslint ./app-code"
+    "eslint": "eslint ./app-code",
+    "test": "jest tests --runInBand"
   },
   "dependencies": {
     "@saltcorn/markup": "^0.2.0",
@@ -28,6 +29,9 @@
     "@module-federation/runtime": "0.11.3",
     "style-loader": "4.0.0",
     "css-loader": "7.1.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   },
   "author": "Christian Hugo",
   "license": "MIT",
