@@ -2,8 +2,11 @@ const View = require("@saltcorn/data/models/view");
 const Table = require("@saltcorn/data/models/table");
 const User = require("@saltcorn/data/models/user");
 const { a, pre, div, code } = require("@saltcorn/markup/tags");
-const { getState } = require("@saltcorn/data/db/state");
-const { handleUserCode, escapeHtml, reactViewSystemPrompt } = require("./common");
+const {
+  buildAndUpdateView,
+  escapeHtml,
+  reactViewSystemPrompt,
+} = require("./common");
 
 class GenerateReactViewSkill {
   static skill_name = "Generate React View";
@@ -27,9 +30,12 @@ class GenerateReactViewSkill {
     const tableList = tables.map((t) => t.name).join(", ");
     const roleList = roles.map((r) => r.role).join(", ");
 
-    return reactViewSystemPrompt + `Available tables: ${tableList || "none"}
+    return (
+      reactViewSystemPrompt +
+      `Available tables: ${tableList || "none"}
 Available roles (for min_role): ${roleList}
-`;
+`
+    );
   }
 
   provideTools() {
@@ -37,9 +43,18 @@ Available roles (for min_role): ${roleList}
       {
         type: "function",
         renderToolCall({ view_name, react_code }) {
-          return div({ class: "mb-3" }, view_name) + pre(code(escapeHtml(react_code)));
+          return (
+            div({ class: "mb-3" }, view_name) +
+            pre(code(escapeHtml(react_code)))
+          );
         },
-        process: async ({ react_code, view_name, table, view_description, min_role }) => {
+        process: async ({
+          react_code,
+          view_name,
+          table,
+          view_description,
+          min_role,
+        }) => {
           const roles = await User.get_roles();
           const min_role_id = min_role
             ? roles.find((r) => r.role === min_role)?.id ?? 100
@@ -57,8 +72,7 @@ Available roles (for min_role): ${roleList}
           }
           if (view_description) viewCfg.description = view_description;
           await View.create(viewCfg);
-          await getState().refresh_views();
-          await handleUserCode(react_code, "production", view_name);
+          await buildAndUpdateView(react_code, "production", view_name);
           return { view_name };
         },
         renderToolResponse: async ({ view_name }) => {
@@ -96,7 +110,8 @@ You must include the react import at the top, and the code should export default
                 type: "string",
               },
               table: {
-                description: "Which table is this a view on (optional, omit for tableless views)",
+                description:
+                  "Which table is this a view on (optional, omit for tableless views)",
                 type: "string",
               },
               view_description: {

@@ -1,14 +1,16 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
-const View = require("@saltcorn/data/models/view");
 const { div } = require("@saltcorn/markup/tags");
 const {
   stateFieldsToWhere,
   readState,
 } = require("@saltcorn/data/plugin-helper");
-const { handleUserCode, buildSafeViewName } = require("./common");
-const { getState } = require("@saltcorn/data/db/state");
+const {
+  buildSafeViewName,
+  buildAndUpdateView,
+  handleUserCode,
+} = require("./common");
 
 const get_state_fields = () => [];
 
@@ -67,7 +69,7 @@ const configuration_workflow = () =>
         context.build_mode,
         context.viewname,
         context.timestamp,
-        newTimestamp,
+        newTimestamp
       );
       context.timestamp = newTimestamp;
       return context;
@@ -128,27 +130,15 @@ const build_user_code = async (
   viewname,
   { user_code, build_mode, timestamp },
   {},
-  { req },
+  { req }
 ) => {
   try {
-    const state = getState();
-    const newTimestamp = new Date().valueOf();
-    await handleUserCode(
+    await buildAndUpdateView(
       user_code || defaultUserCode(table_id),
       build_mode,
       viewname,
-      timestamp,
-      newTimestamp,
+      timestamp
     );
-    const view = View.findOne({ name: viewname });
-    const newCfg = {
-      configuration: {
-        ...(view.configuration || {}),
-        timestamp: newTimestamp,
-      },
-    };
-    await View.update(newCfg, view.id);
-    await state.refresh_views();
     return { json: { notify_success: "Build successful" } };
   } catch (e) {
     return { json: { error: e.message || "An error occured" } };

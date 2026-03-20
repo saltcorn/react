@@ -1,6 +1,7 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const View = require("@saltcorn/data/models/view");
 const { div, script } = require("@saltcorn/markup/tags");
 const { getState } = require("@saltcorn/data/db/state");
 const {
@@ -33,7 +34,7 @@ const buildViewBundle = async (buildMode, viewName, timestamp) => {
       ],
       {
         cwd: __dirname,
-      },
+      }
     );
     child.stdout.on("data", (data) => {
       getState().log(5, data.toString());
@@ -59,7 +60,7 @@ const handleUserCode = async (
   buildMode,
   viewName,
   oldTimestamp,
-  newTimestamp,
+  newTimestamp
 ) => {
   const tenant = db.getTenantSchema() || "public";
   const userCodeDir = path.join(__dirname, "user-code", tenant);
@@ -72,7 +73,7 @@ const handleUserCode = async (
   await fs.writeFile(
     path.join(userCodeDir, `${safeViewName}.js`),
     userCode,
-    "utf8",
+    "utf8"
   );
   if ((await buildViewBundle(buildMode, safeViewName, newTimestamp)) !== 0) {
     throw new Error("Build failed please check your server logs");
@@ -80,12 +81,12 @@ const handleUserCode = async (
   try {
     await fs.rm(
       path.join(__dirname, "public", tenant, `${safeViewName}_${oldTimestamp}`),
-      { recursive: true, force: true },
+      { recursive: true, force: true }
     );
   } catch (err) {
     getState().log(
       2,
-      "Error removing old directory: " + err.message || "Unknown error",
+      "Error removing old directory: " + err.message || "Unknown error"
     );
   }
 };
@@ -252,9 +253,34 @@ const escapeHtml = (unsafe) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 
+const buildAndUpdateView = async (
+  user_code,
+  build_mode,
+  viewname,
+  oldTimestamp
+) => {
+  const newTimestamp = new Date().valueOf();
+  await handleUserCode(
+    user_code,
+    build_mode,
+    viewname,
+    oldTimestamp,
+    newTimestamp
+  );
+  const view = View.findOne({ name: viewname });
+  await View.update(
+    {
+      configuration: { ...(view.configuration || {}), timestamp: newTimestamp },
+    },
+    view.id
+  );
+  await getState().refresh_views();
+};
+
 module.exports = {
   buildSafeViewName,
   handleUserCode,
+  buildAndUpdateView,
   escapeHtml,
   reactViewSystemPrompt,
 };
