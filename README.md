@@ -439,3 +439,12 @@ export default function App({ viewName, query }) {
 # Copilot
 
 The Saltcorn copilot can generate react-views. Only views where all the code is stored within the view are possible, an action to change the main bundle does not exist yet. When the chat only gives you the code without a button to apply it, try to be more explicit (for example, it could be that the model still needs to know the min_role).
+
+## Setup
+
+To make the **Generate React View** tool available in the Saltcorn Copilot:
+
+1. Make sure **Agents** is installed.
+2. Go to **Actions** and create a new Trigger with the **Agent** action.
+3. In the configuration, add **Generate React View** to the skill list.
+4. Open the **Saltcorn Copilot** trigger configuration, click the add button and select your **Generate React View** trigger.
