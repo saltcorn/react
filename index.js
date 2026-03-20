@@ -309,7 +309,8 @@ module.exports = {
       },
     ];
   },
-  copilot_skills: (cfg) => [require("./copilot-skill")(cfg)],
+  copilot_skills: (cfg) => [require("./copilot-skill-legacy")(cfg)],
+  exchange: (cfg) => ({ agent_skills: [require("./agent-skill")] }),
   onLoad: async (configuration) => {
     if (!require("cluster").isMaster) return;
     try {
