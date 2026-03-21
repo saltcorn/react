@@ -10,6 +10,7 @@ const {
   buildSafeViewName,
   buildAndUpdateView,
   handleUserCode,
+  reactViewSystemPrompt,
 } = require("./common");
 
 const get_state_fields = () => [];
@@ -152,5 +153,13 @@ module.exports = {
   configuration_workflow,
   run,
   routes: { build_user_code },
+  copilot_generate_view_prompt: async () => reactViewSystemPrompt,
+  copilot_post_create: async ({ name, configuration }) => {
+    await buildAndUpdateView(
+      configuration.user_code || defaultUserCode(configuration.table_id),
+      configuration.build_mode || "production",
+      name
+    );
+  },
   table_optional: true,
 };
