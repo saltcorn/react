@@ -1,6 +1,6 @@
 {
   "name": "@saltcorn/react",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "integrate React components in your Saltcorn application",
   "main": "index.js",
   "scripts": {
