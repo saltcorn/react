@@ -4,8 +4,10 @@ const Table = require("@saltcorn/data/models/table");
 const { div } = require("@saltcorn/markup/tags");
 const {
   stateFieldsToWhere,
+  stateFieldsToQuery,
   readState,
 } = require("@saltcorn/data/plugin-helper");
+const { hashState } = require("@saltcorn/data/utils");
 const {
   buildSafeViewName,
   buildAndUpdateView,
@@ -30,10 +32,12 @@ export default function App({ viewName, query${
 const run = async (table_id, viewname, { timestamp }, state, extra) => {
   const req = extra.req;
   const query = req.query || {};
+  const stateHash = hashState(state, viewname);
   const props = {
     "view-name": buildSafeViewName(viewname),
     query: encodeURIComponent(JSON.stringify(query)),
     user: encodeURIComponent(JSON.stringify(req.user || {})),
+    "state-hash": stateHash,
   };
   if (table_id) {
     // with table
@@ -45,14 +49,18 @@ const run = async (table_id, viewname, { timestamp }, state, extra) => {
       table,
       prefix: "a.",
     });
+    const q = stateFieldsToQuery({ state, fields, stateHash });
     const rows = await table.getRows(where, {
+      ...q,
       forUser: req.user,
       forPublic: !req.user,
     });
+    const totalCount = q.limit ? await table.countRows(where) : undefined;
     readState(state, fields, req);
     props["table-name"] = table.name;
     props.state = encodeURIComponent(JSON.stringify(state));
     props.rows = encodeURIComponent(JSON.stringify(rows));
+    if (totalCount !== undefined) props["total-count"] = String(totalCount);
   }
   return div({
     class: "_sc_react-view",

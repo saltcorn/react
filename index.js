@@ -29,7 +29,7 @@ const buildMainBundle = async (buildMode, libPath, libMain, timestamp) => {
       ],
       {
         cwd: __dirname,
-      },
+      }
     );
     child.stdout.on("data", (data) => {
       getState().log(5, data.toString());
@@ -72,12 +72,12 @@ const prepareDirectory = async ({
   const libPath = await userLibPath(codeSource, codeLocation);
   const userLibMain = async () => {
     const packageJson = JSON.parse(
-      await fs.readFile(path.join(libPath, "package.json"), "utf8"),
+      await fs.readFile(path.join(libPath, "package.json"), "utf8")
     );
     if (packageJson.main) return packageJson.main;
     else {
       throw new Error(
-        "No main field in package.json, please specify the main file",
+        "No main field in package.json, please specify the main file"
       );
     }
   };
@@ -98,7 +98,7 @@ const prepareDirectory = async ({
       buildMode,
       libPath,
       libPath ? await userLibMain() : null,
-      timestamp,
+      timestamp
     )) !== 0
   ) {
     throw new Error("Webpack failed, please check your Server logs");
@@ -123,8 +123,8 @@ const configuration_workflow = () =>
           app_code_source === "local"
             ? app_code_path
             : app_code_source === "Saltcorn folder"
-              ? sc_folder
-              : null,
+            ? sc_folder
+            : null,
         buildMode: build_mode,
         timestamp,
       });
@@ -260,7 +260,7 @@ const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
         getState().log(
           6,
           `app_code_source: ${app_code_source}, app_code_path: ${app_code_path}, ` +
-            `sc_folder: ${sc_folder}, build_mode: ${build_mode}, `,
+            `sc_folder: ${sc_folder}, build_mode: ${build_mode}, `
         );
         const timestamp = new Date().valueOf();
         await prepareDirectory({
@@ -269,8 +269,8 @@ const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
             app_code_source === "local"
               ? app_code_path
               : app_code_source === "Saltcorn folder"
-                ? sc_folder
-                : null,
+              ? sc_folder
+              : null,
           buildMode: build_mode,
           timestamp,
         });
@@ -319,7 +319,7 @@ module.exports = {
         __dirname,
         "public",
         tenant,
-        `main_bundle_${configuration.timestamp}.js`,
+        `main_bundle_${configuration.timestamp}.js`
       );
       const mainBundleExists = await fs
         .access(mainBundlePath)
@@ -336,8 +336,8 @@ module.exports = {
             app_code_source === "local"
               ? app_code_path
               : app_code_source === "Saltcorn folder"
-                ? sc_folder
-                : null,
+              ? sc_folder
+              : null,
           buildMode: build_mode,
           timestamp,
         });
