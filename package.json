@@ -14,7 +14,7 @@
   "dependencies": {
     "@saltcorn/markup": "^0.2.0",
     "@saltcorn/data": "^0.2.0",
-    "@saltcorn/react-lib": "0.0.1-beta.7",
+    "@saltcorn/react-lib": "0.0.1-beta.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "webpack": "5.97.1",

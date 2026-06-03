@@ -20,8 +20,8 @@ const get_state_fields = () => [];
 const defaultUserCode = (tableId) => {
   return `import React from "react";
 
-export default function App({ viewName, query${
-    tableId ? ", state, tableName, rows" : " "
+export default function App({ viewName, query, state${
+    tableId ? ", tableName, rows" : ""
   } }) {
   return <h3>Please write your React code here</h3>;
 };
@@ -38,6 +38,7 @@ const run = async (table_id, viewname, { timestamp }, state, extra) => {
     query: encodeURIComponent(JSON.stringify(query)),
     user: encodeURIComponent(JSON.stringify(req.user || {})),
     "state-hash": stateHash,
+    state: encodeURIComponent(JSON.stringify(state)),
   };
   if (table_id) {
     // with table
@@ -58,7 +59,6 @@ const run = async (table_id, viewname, { timestamp }, state, extra) => {
     const totalCount = q.limit ? await table.countRows(where) : undefined;
     readState(state, fields, req);
     props["table-name"] = table.name;
-    props.state = encodeURIComponent(JSON.stringify(state));
     props.rows = encodeURIComponent(JSON.stringify(rows));
     if (totalCount !== undefined) props["total-count"] = String(totalCount);
   }

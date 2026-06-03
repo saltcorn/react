@@ -85,7 +85,7 @@ export default function App({ tableName, viewName, state, query, rows, user, sta
 For tableless react-views, only the following properties are available:
 
 ```javascript
-export default function App({ viewName, query, user, stateHash })
+export default function App({ viewName, query, state, user, stateHash })
 ```
 
 ### Define everything in the view
@@ -553,11 +553,13 @@ export default function App({ viewName, query }) {
 }
 ```
 
-## Controlling embedded views via URL state
+## Controlling embedded multi-row views via URL state
 
-A React view can embed and control other Saltcorn views (Feed, List, etc.) by reading and writing URL state. When URL state changes via pjax, Saltcorn re-renders the affected views and passes the updated `state` prop to your React component.
+A React view can embed and control other Saltcorn views that display multiple rows by reading and writing URL state. When URL state changes via pjax, Saltcorn re-renders the affected views and passes the updated `state` prop to your React component.
 
-Embedded views (Feed, List, …) use URL params prefixed with a short hash unique to each view instance:
+> **Note:** Currently only **List** and **Feed** view templates are supported — they expose the pagination metadata that `useManyView` depends on.
+
+Embedded views use URL params prefixed with a short hash unique to each view instance:
 
 | Param | Effect |
 |---|---|
@@ -570,15 +572,15 @@ Use `set_state_field(key, value)` to update a single param, or `set_state_fields
 
 **Full example**
 
-A tableless React controller view that embeds `"persons_feed"` and controls its pagination and sorting. It extracts the server-computed hash from the feed on first load, then keeps the feed in sync with URL state on every pjax navigation.
+A tableless React controller view that embeds `"persons_feed"` (a **Feed** view — a **List** view works identically) and controls its pagination and sorting. It extracts the server-computed hash from the embedded view on first load, then keeps it in sync with URL state on every pjax navigation.
 
 ```javascript
 import React from "react";
-import { useEmbeddedView } from "@saltcorn/react-lib/hooks";
-import ScView from "@saltcorn/react-lib/components/ScView";
+import { useManyView } from "@saltcorn/react-lib/hooks";
+import { ScView } from "@saltcorn/react-lib/components";
 
 export default function App({ state }) {
-  const { hash, html, page, hasNext, ready } = useEmbeddedView("persons_feed", state);
+  const { hash, page, hasNext, ready, viewProps } = useManyView("persons_feed", state);
 
   if (!ready) return null;
 
@@ -613,7 +615,7 @@ export default function App({ state }) {
       </div>
       {/* Hide the feed's built-in paginator — we provide our own above */}
       <style>{`.sc-feed-wrapper ul.pagination { display: none !important; }`}</style>
-      <ScView html={html} className="sc-feed-wrapper" />
+      <ScView {...viewProps} className="sc-feed-wrapper" />
     </div>
   );
 }
