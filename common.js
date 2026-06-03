@@ -99,17 +99,22 @@ A react view can be tableless or table-based. A tableless react view could for e
 
 When a react view is tabless, it gets this properties:
 \`\`\`import React from "react";
-export default function App({viewName, query}) {...}
+export default function App({viewName, query, stateHash}) {...}
 \`\`\`
 When a react view is table based, it gets this properties:
 \`\`\`import React from "react";
-export default function App({viewName, query, tableName, rows, state}) {...}
+export default function App({viewName, query, tableName, rows, state, stateHash}) {...}
 \`\`\`
 - viewName: the name of the view
 - query: the query parameters of the view
 - tableName: the name of the Saltcorn table
 - rows: the rows of the table, this is an array of objects, each object is a row of the table
 - state: the state of the view, this is an object with the state of the view
+- stateHash: a short hash string identifying this view's state context. Use it to set pagination and sort parameters
+  via set_state_field, for example set_state_field(\`_\${stateHash}_page\`, 2) to go to page 2,
+  set_state_field(\`_\${stateHash}_pagesize\`, 10) to set the page size,
+  set_state_field(\`_\${stateHash}_sortby\`, "name") to sort by a field,
+  set_state_field(\`_\${stateHash}_sortdesc\`, true) to sort descending.
 
 A react-view has access to bootstrap 5 styles. react-bootstrap is not available please use the normal bootstrap classes.
 

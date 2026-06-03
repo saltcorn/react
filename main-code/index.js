@@ -5,6 +5,7 @@ import { init, loadRemote } from "@module-federation/runtime";
 
 import * as userLib from "@user-lib";
 
+
 const isWeb = typeof parent.saltcorn?.mobileApp === "undefined";
 const tenant = window.tenant_name || "public";
 
@@ -42,9 +43,9 @@ const initMain = async () => {
           ? `/plugins/public/react/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
           : `/plugins/public/react/${tenant}/${viewName}_remote.js`
         : // TODO get the version from the plugin, for now hardcoded in any release
-          timestamp
-          ? `http://localhost/sc_plugins/public/react@0.1.8/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
-          : `http://localhost/sc_plugins/public/react@0.1.8/${tenant}/${viewName}_remote.js`,
+        timestamp
+        ? `http://localhost/sc_plugins/public/react@0.1.8/${tenant}/${viewName}_${timestamp}/${viewName}_remote.js`
+        : `http://localhost/sc_plugins/public/react@0.1.8/${tenant}/${viewName}_remote.js`,
     });
   }
 
@@ -52,21 +53,33 @@ const initMain = async () => {
   for (const rootElement of rootElements) {
     const viewName = rootElement.getAttribute("view-name");
     const state = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("state")),
+      decodeURIComponent(rootElement.getAttribute("state"))
     );
     const query = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("query")),
+      decodeURIComponent(rootElement.getAttribute("query"))
     );
     const tableName = rootElement.getAttribute("table-name");
     const rows = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("rows")),
+      decodeURIComponent(rootElement.getAttribute("rows"))
     );
     const user = JSON.parse(
-      decodeURIComponent(rootElement.getAttribute("user")),
+      decodeURIComponent(rootElement.getAttribute("user"))
     );
+    const stateHash = rootElement.getAttribute("state-hash");
+    const totalCountAttr = rootElement.getAttribute("total-count");
+    const totalCount = totalCountAttr ? parseInt(totalCountAttr) : undefined;
     try {
       const remote = await loadRemote(`${viewName}/${viewName}`);
-      const props = { tableName, viewName, state, query, rows, user };
+      const props = {
+        tableName,
+        viewName,
+        state,
+        query,
+        rows,
+        user,
+        stateHash,
+        totalCount,
+      };
       const root = ReactDOMClient.createRoot(rootElement);
       root.render(React.createElement(remote.default, props));
     } catch (e) {

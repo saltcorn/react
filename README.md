@@ -76,13 +76,16 @@ and click Build or Finish.
 The component also has access to **state**, **query**, **rows** and the current **user**:
 
 ```javascript
-export default function App({ tableName, viewName, state, query, rows, user })
+export default function App({ tableName, viewName, state, query, rows, user, stateHash, totalCount })
 ```
+
+- `stateHash` — short hash for this view's state context, used to construct pagination/sort URL params
+- `totalCount` — total number of matching rows (only set when a pagesize is active), useful for "page X of Y"
 
 For tableless react-views, only the following properties are available:
 
 ```javascript
-export default function App({ viewName, query, user })
+export default function App({ viewName, query, state, user, stateHash })
 ```
 
 ### Define everything in the view
@@ -205,6 +208,7 @@ import { fetchRows, fetchOneRow } from "@saltcorn/react-lib/api";
 ```
 
 ### Count rows
+
 ```javascript
 import React from "react";
 import { useCountRows } from "@saltcorn/react-lib/hooks";
@@ -216,16 +220,13 @@ export default function App({ viewName, query }) {
     <div>
       <h3>
         Row count for users:{" "}
-        {isCounting
-          ? "Count..."
-          : error
-          ? "Error fetching data"
-          : count}
+        {isCounting ? "Count..." : error ? "Error fetching data" : count}
       </h3>
     </div>
   );
 }
 ```
+
 Or without hooks:
 
 ```javascript
@@ -288,13 +289,7 @@ import React from "react";
 import { runAction } from "@saltcorn/react-lib/api";
 
 export default function App({}) {
-  return (
-    <button
-      onClick={() => runAction("my_action")}
-    >
-      Run action
-    </button>
-  );
+  return <button onClick={() => runAction("my_action")}>Run action</button>;
 }
 ```
 
@@ -417,6 +412,128 @@ export default function App({ viewName, query }) {
 }
 ```
 
+## Pagination and Sorting
+
+React views receive a `stateHash` prop — a short identifier for this view's state context. Use it to set pagination and sort parameters via `set_state_field`, which updates the URL and triggers a re-render with the new page.
+
+The view also receives `totalCount` when a page size is active, so you can show "page X of Y".
+
+**Available state keys** (replace `${stateHash}` with the actual value):
+
+| Key                      | Effect                             |
+| ------------------------ | ---------------------------------- |
+| `_${stateHash}_page`     | Current page number (1-based)      |
+| `_${stateHash}_pagesize` | Rows per page                      |
+| `_${stateHash}_sortby`   | Field name to sort by              |
+| `_${stateHash}_sortdesc` | Set to `"on"` for descending order |
+
+**Copy-paste example** — paste this into a table-based React view:
+
+```javascript
+import React, { useEffect } from "react";
+
+const PAGE_SIZE = 5;
+
+export default function App({ rows, state, stateHash, totalCount }) {
+  useEffect(() => {
+    if (!state[`_${stateHash}_pagesize`]) {
+      set_state_field(`_${stateHash}_pagesize`, PAGE_SIZE);
+    }
+  }, []);
+
+  const currentPage = state[`_${stateHash}_page`]
+    ? parseInt(state[`_${stateHash}_page`])
+    : 1;
+  const sortBy = state[`_${stateHash}_sortby`] || "";
+  const sortDesc = !!state[`_${stateHash}_sortdesc`];
+  const totalPages = totalCount ? Math.ceil(totalCount / PAGE_SIZE) : null;
+
+  const setPage = (n) => set_state_field(`_${stateHash}_page`, n);
+  const setPageSize = (n) =>
+    set_state_fields({
+      [`_${stateHash}_pagesize`]: n,
+      [`_${stateHash}_page`]: 1,
+    });
+  const setSort = (field) => {
+    const newSortDesc = sortBy === field ? (sortDesc ? "" : "on") : "";
+    const kvs = {
+      [`_${stateHash}_sortby`]: field,
+      [`_${stateHash}_sortdesc`]: newSortDesc,
+    };
+    const currentPageSize = state[`_${stateHash}_pagesize`];
+    if (currentPageSize) kvs[`_${stateHash}_pagesize`] = currentPageSize;
+    set_state_fields(kvs);
+  };
+
+  if (!rows || rows.length === 0) return <p>No rows found.</p>;
+  const columns = Object.keys(rows[0]);
+
+  return (
+    <div>
+      <table className="table table-striped">
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col}
+                onClick={() => setSort(col)}
+                style={{ cursor: "pointer" }}
+              >
+                {col}
+                {sortBy === col ? (sortDesc ? " ▼" : " ▲") : ""}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {columns.map((col) => (
+                <td key={col}>{String(row[col] ?? "")}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="d-flex align-items-center gap-3 mt-2">
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          disabled={currentPage <= 1}
+          onClick={() => setPage(currentPage - 1)}
+        >
+          ‹ Prev
+        </button>
+        <span>
+          Page {currentPage}
+          {totalPages ? ` of ${totalPages}` : ""}
+        </span>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          disabled={
+            totalPages ? currentPage >= totalPages : rows.length < PAGE_SIZE
+          }
+          onClick={() => setPage(currentPage + 1)}
+        >
+          Next ›
+        </button>
+        <select
+          className="form-select form-select-sm w-auto"
+          value={state[`_${stateHash}_pagesize`] || PAGE_SIZE}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+        >
+          {[5, 10, 25, 50].map((n) => (
+            <option key={n} value={n}>
+              {n} per page
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+```
+
 ## Components
 
 ### ScView
@@ -431,6 +548,74 @@ export default function App({ viewName, query }) {
   return (
     <div>
       <ScView name="list_persons" query={query} />
+    </div>
+  );
+}
+```
+
+## Controlling embedded multi-row views via URL state
+
+A React view can embed and control other Saltcorn views that display multiple rows by reading and writing URL state. When URL state changes via pjax, Saltcorn re-renders the affected views and passes the updated `state` prop to your React component.
+
+> **Note:** Currently only **List** and **Feed** view templates are supported — they expose the pagination metadata that `useManyView` depends on.
+
+Embedded views use URL params prefixed with a short hash unique to each view instance:
+
+| Param | Effect |
+|---|---|
+| `_${hash}_page` | Current page (1-based) |
+| `_${hash}_pagesize` | Rows per page |
+| `_${hash}_sortby` | Field name to sort by |
+| `_${hash}_sortdesc` | `"on"` for descending order |
+
+Use `set_state_field(key, value)` to update a single param, or `set_state_fields({...})` to update several at once so they land in a single navigation step.
+
+**Full example**
+
+A tableless React controller view that embeds `"persons_feed"` (a **Feed** view — a **List** view works identically) and controls its pagination and sorting. It extracts the server-computed hash from the embedded view on first load, then keeps it in sync with URL state on every pjax navigation.
+
+```javascript
+import React from "react";
+import { useManyView } from "@saltcorn/react-lib/hooks";
+import { ScView } from "@saltcorn/react-lib/components";
+
+export default function App({ state }) {
+  const { hash, page, hasNext, ready, viewProps } = useManyView("persons_feed", state);
+
+  if (!ready) return null;
+
+  const sortBy   = state[`_${hash}_sortby`]   || "";
+  const sortDesc = !!state[`_${hash}_sortdesc`];
+
+  const setPage = (n) => set_state_field(`_${hash}_page`, n);
+  const setSort = (field) => {
+    const newDesc = sortBy === field ? (sortDesc ? "" : "on") : "";
+    set_state_fields({ [`_${hash}_sortby`]: field, [`_${hash}_sortdesc`]: newDesc });
+  };
+
+  return (
+    <div>
+      <div className="d-flex flex-wrap align-items-center gap-2 p-2 bg-light rounded">
+        <span className="text-muted small">Sort:</span>
+        {["first_name", "last_name"].map((f) => (
+          <button key={f}
+            className={`btn btn-sm ${sortBy === f ? "btn-primary" : "btn-outline-secondary"}`}
+            onClick={() => setSort(f)}>
+            {f}{sortBy === f ? (sortDesc ? " ▼" : " ▲") : ""}
+          </button>
+        ))}
+        <div className="vr" />
+        <button className="btn btn-sm btn-outline-secondary"
+          disabled={page <= 1}
+          onClick={() => setPage(page - 1)}>‹ Prev</button>
+        <span className="small">Page {page}</span>
+        <button className="btn btn-sm btn-outline-secondary"
+          disabled={!hasNext}
+          onClick={() => setPage(page + 1)}>Next ›</button>
+      </div>
+      {/* Hide the feed's built-in paginator — we provide our own above */}
+      <style>{`.sc-feed-wrapper ul.pagination { display: none !important; }`}</style>
+      <ScView {...viewProps} className="sc-feed-wrapper" />
     </div>
   );
 }
