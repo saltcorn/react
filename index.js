@@ -3,7 +3,7 @@ const Form = require("@saltcorn/data/models/form");
 const File = require("@saltcorn/data/models/file");
 const Plugin = require("@saltcorn/data/models/plugin");
 const db = require("@saltcorn/data/db");
-const { getState } = require("@saltcorn/data/db/state");
+const { getState, features } = require("@saltcorn/data/db/state");
 const { spawn } = require("child_process");
 const fs = require("fs").promises;
 const path = require("path");
@@ -250,12 +250,30 @@ const configuration_workflow = () =>
     ],
   });
 
+// Only admins may trigger a rebuild of the main bundle. Uses the centralized
+// authorize_api hook when the running core supports it (features.authorize_access_hooks),
+// falling back to a plain role check on older cores.
+const isRunBuildAuthorized = async (req) => {
+  if (features?.authorize_access_hooks) {
+    return await getState().authorizeApi(req.user, {
+      route: "react/run_build",
+      action: "post",
+      req,
+    });
+  }
+  return !!(req.user && req.user.role_id <= 1);
+};
+
 const routes = ({ app_code_source, app_code_path, sc_folder, build_mode }) => {
   return [
     {
       url: "/react/run_build",
       method: "post",
       callback: async (req, res) => {
+        if (!(await isRunBuildAuthorized(req))) {
+          res.status(401).json({ error: "Not authorized" });
+          return;
+        }
         getState().log(5, "Building your React code");
         getState().log(
           6,
@@ -297,6 +315,32 @@ module.exports = {
   plugin_name: "react",
   configuration_workflow,
   routes,
+  authorize_api: (cfg) => async (request, user) => {
+    if (request.route !== "react/run_build") return null;
+    return user && user.role_id <= 1
+      ? { decision: "allow" }
+      : {
+          decision: "deny",
+          reason: "Only admins may rebuild the React bundle",
+        };
+  },
+  // Gates the "React" viewtemplate's build_user_code route (react_view.js) -
+  // only admins may rebuild a view's per-view bundle. Scoped to that one
+  // route so it never weighs in on the view's regular get/post rendering.
+  authorize_view: (cfg) => async (request, user) => {
+    if (
+      request.action !== "post" ||
+      request.route !== "build_user_code" ||
+      request.view?.viewtemplate !== "React"
+    )
+      return null;
+    return user && user.role_id <= 1
+      ? { decision: "allow" }
+      : {
+          decision: "deny",
+          reason: "Only admins may rebuild the React view bundle",
+        };
+  },
   viewtemplates: (cfg) => [require("./react_view")],
   headers: (cfg) => {
     const tenant = db.getTenantSchema() || "public";
