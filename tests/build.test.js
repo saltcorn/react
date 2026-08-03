@@ -1,7 +1,13 @@
 const { getState } = require("@saltcorn/data/db/state");
 const View = require("@saltcorn/data/models/view");
 const { mockReqRes } = require("@saltcorn/data/tests/mocks");
-const { afterAll, beforeAll, describe, it, expect } = require("@jest/globals");
+const {
+  afterAll,
+  beforeAll,
+  describe,
+  it,
+  expect,
+} = require("@saltcorn/db-common/test_expect");
 
 getState().registerPlugin("base", require("@saltcorn/data/base-plugin"));
 getState().registerPlugin("@saltcorn/react", require(".."));
