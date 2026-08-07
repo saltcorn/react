@@ -1,6 +1,8 @@
 const Workflow = require("@saltcorn/data/models/workflow");
 const Form = require("@saltcorn/data/models/form");
 const Table = require("@saltcorn/data/models/table");
+const View = require("@saltcorn/data/models/view");
+const { features } = require("@saltcorn/data/db/state");
 const { div } = require("@saltcorn/markup/tags");
 const {
   stateFieldsToWhere,
@@ -134,6 +136,25 @@ const configuration_workflow = () =>
     ],
   });
 
+// Only admins may rebuild a view's user-code bundle. Uses the centralized
+// authorize_view hook when the running core supports it (features.authorize_access_hooks),
+// falling back to a plain role check on older cores.
+const isBuildUserCodeAuthorized = async (viewname, req) => {
+  if (features?.authorize_access_hooks) {
+    const view = await View.findOne({ name: viewname });
+    return !!(
+      view &&
+      (await view.authorize(req.user, {
+        action: "post",
+        route: "build_user_code",
+        req,
+        body: {},
+      }))
+    );
+  }
+  return !!(req.user && req.user.role_id <= 1);
+};
+
 const build_user_code = async (
   table_id,
   viewname,
@@ -141,6 +162,9 @@ const build_user_code = async (
   {},
   { req }
 ) => {
+  if (!(await isBuildUserCodeAuthorized(viewname, req))) {
+    return { json: { error: "Not authorized" } };
+  }
   try {
     await buildAndUpdateView(
       user_code || defaultUserCode(table_id),
